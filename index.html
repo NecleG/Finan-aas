@@ -75,6 +75,10 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
+        .tab-content {
+            transition: opacity 0.3s ease-in-out;
+        }
+        
         .hover\:scale-102:hover {
             transform: scale(1.02);
         }
@@ -231,20 +235,20 @@
         <!-- Navigation Tabs -->
         <div class="bg-white/10 backdrop-blur-sm rounded-2xl shadow-xl mb-4 sm:mb-8 border border-white/20">
             <div class="flex p-2 gap-1 sm:gap-2">
-                <button onclick="showTab('transactions')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 text-xs sm:text-base">
-                    <i class="fas fa-list mr-1 sm:mr-2"></i><span class="hidden sm:inline">💳 </span>Transações
+                <button onclick="showTab('transactions')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 text-xs sm:text-base hover:shadow-xl">
+                    <i class="fas fa-list mr-1 sm:mr-2"></i>Transações
                 </button>
-                <button onclick="showTab('dashboard')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 text-xs sm:text-base">
-                    <i class="fas fa-chart-pie mr-1 sm:mr-2"></i><span class="hidden sm:inline">📊 </span>Dashboard
+                <button onclick="showTab('dashboard')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-semibold text-white/70 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-300 text-xs sm:text-base transform hover:scale-105 hover:shadow-lg">
+                    <i class="fas fa-chart-pie mr-1 sm:mr-2"></i>Dashboard
                 </button>
-                <button onclick="showTab('calendar')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 text-xs sm:text-base">
-                    <i class="fas fa-calendar mr-1 sm:mr-2"></i><span class="hidden sm:inline">📅 </span>Calendário
+                <button onclick="showTab('calendar')" class="tab-btn flex-1 px-2 py-3 sm:px-6 sm:py-4 font-semibold text-white/70 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-300 text-xs sm:text-base transform hover:scale-105 hover:shadow-lg">
+                    <i class="fas fa-calendar mr-1 sm:mr-2"></i>Calendário
                 </button>
             </div>
         </div>
 
         <!-- Transactions Tab -->
-        <div id="transactions" class="tab-content">
+        <div id="transactions" class="tab-content fade-in">
             <!-- Reminders -->
             <div id="reminders" class="mb-6">
                 <!-- Reminders will be populated here -->
@@ -397,7 +401,7 @@
         </div>
 
         <!-- Dashboard Tab -->
-        <div id="dashboard" class="tab-content hidden">
+        <div id="dashboard" class="tab-content hidden fade-in">
             <!-- Dashboard Filters -->
             <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -496,7 +500,7 @@
         </div>
 
         <!-- Calendar Tab -->
-        <div id="calendar" class="tab-content hidden">
+        <div id="calendar" class="tab-content hidden fade-in">
             <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-8 border border-white/20">
                 <div class="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-8 space-y-4 sm:space-y-0">
                     <h3 class="text-lg sm:text-2xl font-bold text-gray-800 flex items-center">
@@ -842,15 +846,30 @@
 
         // Tab functionality
         function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold');
-                btn.classList.add('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/10');
+            // Hide all tabs with fade out
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+                tab.style.opacity = '0';
             });
             
-            document.getElementById(tabName).classList.remove('hidden');
-            event.target.classList.remove('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/10');
-            event.target.classList.add('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold');
+            // Reset all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold', 'hover:shadow-xl');
+                btn.classList.add('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/20', 'transform', 'hover:scale-105', 'hover:shadow-lg');
+            });
+            
+            // Show selected tab with fade in
+            const selectedTab = document.getElementById(tabName);
+            selectedTab.classList.remove('hidden');
+            
+            // Trigger reflow and fade in
+            setTimeout(() => {
+                selectedTab.style.opacity = '1';
+            }, 50);
+            
+            // Style active tab button
+            event.target.classList.remove('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/20', 'hover:shadow-lg');
+            event.target.classList.add('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold', 'hover:shadow-xl');
         }
 
         // Transaction form
@@ -1725,5 +1744,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9d13e96245225',t:'MTc1NDkzNzE2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96da67e0e1809882',t:'MTc1NDk0MzMzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
