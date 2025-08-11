@@ -173,7 +173,7 @@
     </div>
 
     <!-- Header -->
-    <header class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-2xl">
+    <header id="mainHeader" class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-2xl transition-all duration-500">
         <div class="container mx-auto px-4 py-4 sm:px-6 sm:py-6">
             <!-- Mobile Layout -->
             <div class="block lg:hidden">
@@ -227,7 +227,7 @@
         </div>
     </header>
 
-    <div class="container mx-auto px-4 py-4 sm:px-6 sm:py-8">
+    <div id="mainContent" class="container mx-auto px-4 py-4 sm:px-6 sm:py-8 transition-all duration-500">
         <!-- Navigation Tabs -->
         <div class="bg-white/10 backdrop-blur-sm rounded-2xl shadow-xl mb-4 sm:mb-8 border border-white/20">
             <div class="flex p-2 gap-1 sm:gap-2">
@@ -595,6 +595,10 @@
                         window.currentUser = user;
                         document.getElementById('loginModal').classList.add('hidden');
                         
+                        // Remove blur effect
+                        document.getElementById('mainHeader').classList.remove('blur-sm', 'pointer-events-none');
+                        document.getElementById('mainContent').classList.remove('blur-sm', 'pointer-events-none');
+                        
                         // Show user info for both desktop and mobile
                         const userInfo = document.getElementById('userInfo');
                         const userInfoMobile = document.getElementById('userInfoMobile');
@@ -608,6 +612,10 @@
                     } else {
                         window.currentUser = null;
                         document.getElementById('loginModal').classList.remove('hidden');
+                        
+                        // Add blur effect to background
+                        document.getElementById('mainHeader').classList.add('blur-sm', 'pointer-events-none');
+                        document.getElementById('mainContent').classList.add('blur-sm', 'pointer-events-none');
                         
                         // Hide user info for both desktop and mobile
                         const userInfo = document.getElementById('userInfo');
@@ -880,7 +888,7 @@
                                         <span class="font-semibold text-gray-800">${t.description}</span>
                                         <span class="text-sm text-gray-600 ml-3 bg-gray-100 px-2 py-1 rounded-full">${formatCurrency(t.amount)}</span>
                                     </div>
-                                    <button onclick="toggleComplete(${t.id})" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
+                                    <button onclick="toggleComplete('${t.id}')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
                                         <i class="fas fa-check"></i>
                                     </button>
                                 </div>
@@ -905,7 +913,7 @@
                                         <span class="font-semibold text-gray-800">${t.description}</span>
                                         <span class="text-sm text-gray-600 ml-3 bg-gray-100 px-2 py-1 rounded-full">${formatCurrency(t.amount)} - ${formatDate(t.date)}</span>
                                     </div>
-                                    <button onclick="toggleComplete(${t.id})" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
+                                    <button onclick="toggleComplete('${t.id}')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
                                         <i class="fas fa-check"></i>
                                     </button>
                                 </div>
@@ -1065,13 +1073,13 @@
                             </p>
                         </div>
                         <div class="flex justify-end space-x-2">
-                            <button onclick="toggleComplete(${transaction.id})" class="p-2 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300">
+                            <button onclick="toggleComplete('${transaction.id}')" class="p-2 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300">
                                 <i class="fas fa-check text-sm"></i>
                             </button>
-                            <button onclick="editTransaction(${transaction.id})" class="p-2 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300">
+                            <button onclick="editTransaction('${transaction.id}')" class="p-2 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300">
                                 <i class="fas fa-edit text-sm"></i>
                             </button>
-                            <button onclick="deleteTransaction(${transaction.id})" class="p-2 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300">
+                            <button onclick="deleteTransaction('${transaction.id}')" class="p-2 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300">
                                 <i class="fas fa-trash text-sm"></i>
                             </button>
                         </div>
@@ -1104,13 +1112,13 @@
                                 ${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}
                             </span>
                             <div class="flex items-center space-x-2">
-                                <button onclick="toggleComplete(${transaction.id})" class="p-3 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300 transform hover:scale-110">
+                                <button onclick="toggleComplete('${transaction.id}')" class="p-3 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300 transform hover:scale-110">
                                     <i class="fas fa-check text-lg"></i>
                                 </button>
-                                <button onclick="editTransaction(${transaction.id})" class="p-3 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300 transform hover:scale-110">
+                                <button onclick="editTransaction('${transaction.id}')" class="p-3 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300 transform hover:scale-110">
                                     <i class="fas fa-edit text-lg"></i>
                                 </button>
-                                <button onclick="deleteTransaction(${transaction.id})" class="p-3 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300 transform hover:scale-110">
+                                <button onclick="deleteTransaction('${transaction.id}')" class="p-3 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300 transform hover:scale-110">
                                     <i class="fas fa-trash text-lg"></i>
                                 </button>
                             </div>
@@ -1357,13 +1365,13 @@
                         <div class="flex items-center justify-end mt-2 space-x-2">
                             <span class="w-3 h-3 rounded-full ${getPriorityColor(transaction.priority)} shadow-sm"></span>
                             <div class="flex space-x-1">
-                                <button onclick="toggleComplete(${transaction.id}); showDayTransactions(new Date('${transaction.date}T00:00:00'))" class="p-2 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300">
+                                <button onclick="toggleComplete('${transaction.id}'); showDayTransactions(new Date('${transaction.date}T00:00:00'))" class="p-2 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300">
                                     <i class="fas fa-check"></i>
                                 </button>
-                                <button onclick="editTransaction(${transaction.id})" class="p-2 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300">
+                                <button onclick="editTransaction('${transaction.id}')" class="p-2 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button onclick="deleteTransaction(${transaction.id}); closeDayModal()" class="p-2 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300">
+                                <button onclick="deleteTransaction('${transaction.id}'); closeDayModal()" class="p-2 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1533,5 +1541,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d95bcc61171d1b',t:'MTc1NDkzMjM1NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9635e02531d1b',t:'MTc1NDkzMjY2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
