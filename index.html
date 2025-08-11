@@ -55,33 +55,55 @@
         });
         
         function initializeAuth() {
+            console.log('Inicializando autenticação...');
+            
             onAuthStateChanged(auth, (user) => {
+                console.log('Estado de autenticação mudou:', user ? 'logado' : 'deslogado');
+                
                 if (user) {
                     window.currentUser = user;
+                    console.log('Usuário logado:', user.uid, user.email);
                     
                     // Mostrar nome do usuário
                     const displayName = user.displayName || user.email.split('@')[0];
-                    document.getElementById('userDisplayName').textContent = displayName;
+                    const userDisplayElement = document.getElementById('userDisplayName');
+                    if (userDisplayElement) {
+                        userDisplayElement.textContent = displayName;
+                    }
                     
                     // Esconder tela de login e mostrar app
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    document.getElementById('appContainer').classList.remove('hidden');
+                    const loginScreen = document.getElementById('loginScreen');
+                    const appContainer = document.getElementById('appContainer');
                     
-                    // Carregar transações do usuário
-                    window.loadTransactionsFromFirebase();
+                    if (loginScreen && appContainer) {
+                        loginScreen.classList.add('hidden');
+                        appContainer.classList.remove('hidden');
+                    }
+                    
+                    // Aguardar um pouco antes de carregar transações
+                    setTimeout(() => {
+                        window.loadTransactionsFromFirebase();
+                    }, 500);
                     
                 } else {
+                    console.log('Usuário deslogado');
                     window.currentUser = null;
                     
                     // Limpar dados locais
                     window.transactions = [];
                     if (window.unsubscribeTransactions) {
                         window.unsubscribeTransactions();
+                        window.unsubscribeTransactions = null;
                     }
                     
                     // Mostrar tela de login e esconder app
-                    document.getElementById('loginScreen').classList.remove('hidden');
-                    document.getElementById('appContainer').classList.add('hidden');
+                    const loginScreen = document.getElementById('loginScreen');
+                    const appContainer = document.getElementById('appContainer');
+                    
+                    if (loginScreen && appContainer) {
+                        loginScreen.classList.remove('hidden');
+                        appContainer.classList.add('hidden');
+                    }
                 }
             });
         }
@@ -1817,15 +1839,34 @@
 
         // Login com Google
         document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            console.log('Tentando login com Google...');
             setButtonLoading('googleLoginBtn', true);
             
             try {
                 const provider = new window.GoogleAuthProvider();
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                console.log('Iniciando popup do Google...');
                 const result = await window.signInWithPopup(window.auth, provider);
+                console.log('Login com Google bem-sucedido:', result.user.email);
                 showMessage('Login realizado com sucesso!');
             } catch (error) {
                 console.error('Erro no login com Google:', error);
-                showMessage('Erro ao fazer login com Google: ' + error.message, 'error');
+                
+                let errorMessage = 'Erro ao fazer login com Google';
+                
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = 'Login cancelado pelo usuário';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = 'Popup bloqueado pelo navegador. Permita popups para este site.';
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    errorMessage = 'Solicitação de popup cancelada';
+                } else {
+                    errorMessage = error.message;
+                }
+                
+                showMessage(errorMessage, 'error');
             } finally {
                 setButtonLoading('googleLoginBtn', false);
             }
@@ -1834,13 +1875,22 @@
         // Login com email/senha
         document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('Tentando login com email...');
             setButtonLoading('loginBtn', true);
             
-            const email = document.getElementById('loginEmail').value;
+            const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
             
+            if (!email || !password) {
+                showMessage('Por favor, preencha email e senha', 'error');
+                setButtonLoading('loginBtn', false);
+                return;
+            }
+            
             try {
-                await window.signInWithEmailAndPassword(window.auth, email, password);
+                console.log('Fazendo login com email:', email);
+                const result = await window.signInWithEmailAndPassword(window.auth, email, password);
+                console.log('Login com email bem-sucedido:', result.user.email);
                 showMessage('Login realizado com sucesso!');
             } catch (error) {
                 console.error('Erro no login:', error);
@@ -1855,6 +1905,9 @@
                         break;
                     case 'auth/invalid-email':
                         errorMessage = 'Email inválido';
+                        break;
+                    case 'auth/invalid-credential':
+                        errorMessage = 'Credenciais inválidas';
                         break;
                     case 'auth/too-many-requests':
                         errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
@@ -1872,14 +1925,21 @@
         // Registro com email/senha
         document.getElementById('emailRegisterForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('Tentando criar conta...');
             setButtonLoading('registerBtn', true);
             
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
+            const name = document.getElementById('registerName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             
             // Validações
+            if (!name || !email || !password || !confirmPassword) {
+                showMessage('Por favor, preencha todos os campos', 'error');
+                setButtonLoading('registerBtn', false);
+                return;
+            }
+            
             if (password !== confirmPassword) {
                 showMessage('As senhas não coincidem', 'error');
                 setButtonLoading('registerBtn', false);
@@ -1893,8 +1953,11 @@
             }
             
             try {
+                console.log('Criando conta para:', email);
                 const userCredential = await window.createUserWithEmailAndPassword(window.auth, email, password);
+                console.log('Conta criada, atualizando perfil...');
                 await window.updateProfile(userCredential.user, { displayName: name });
+                console.log('Conta criada com sucesso:', userCredential.user.email);
                 showMessage('Conta criada com sucesso!');
             } catch (error) {
                 console.error('Erro no registro:', error);
@@ -1936,9 +1999,20 @@
 
         // Função para carregar transações do Firebase
         window.loadTransactionsFromFirebase = async function() {
-            if (!window.currentUser) return;
+            if (!window.currentUser) {
+                console.log('Usuário não autenticado, não carregando transações');
+                return;
+            }
             
             try {
+                // Limpar listener anterior se existir
+                if (window.unsubscribeTransactions) {
+                    window.unsubscribeTransactions();
+                    window.unsubscribeTransactions = null;
+                }
+                
+                console.log('Carregando transações para usuário:', window.currentUser.uid);
+                
                 const transactionsRef = window.collection(window.db, 'transactions');
                 const q = window.query(
                     transactionsRef, 
@@ -1947,7 +2021,9 @@
                 
                 // Listener em tempo real
                 window.unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
+                    console.log('Snapshot recebido, documentos:', snapshot.size);
                     window.transactions = [];
+                    
                     snapshot.forEach((doc) => {
                         const data = doc.data();
                         window.transactions.push({
@@ -1965,6 +2041,8 @@
                     // Ordenar por data de criação (mais recentes primeiro)
                     window.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                     
+                    console.log('Transações carregadas:', window.transactions.length);
+                    
                     populateMonthYearFilters();
                     updateDashboard();
                     renderTransactions();
@@ -1973,14 +2051,16 @@
                 }, (error) => {
                     console.error('Erro no listener:', error);
                     if (error.code === 'permission-denied') {
-                        showMessage('Erro de permissão. Faça login novamente.', 'error');
-                        logout();
+                        showMessage('Erro de permissão. Verifique as regras do Firestore.', 'error');
+                        // Não fazer logout automaticamente, apenas mostrar erro
+                    } else {
+                        showMessage('Erro ao carregar dados: ' + error.message, 'error');
                     }
                 });
                 
             } catch (error) {
-                console.error('Erro ao carregar transações:', error);
-                showMessage('Erro ao carregar dados', 'error');
+                console.error('Erro ao configurar listener:', error);
+                showMessage('Erro ao configurar sincronização de dados', 'error');
             }
         };
 
@@ -2118,5 +2198,5 @@
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d82406d3891b2e',t:'MTc1NDkxOTU4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d82dc443381b2e',t:'MTc1NDkxOTk4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
