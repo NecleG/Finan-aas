@@ -115,7 +115,22 @@
         <div class="login-container rounded-2xl p-8 w-full max-w-md mx-4 border border-white/20 shadow-2xl">
             <div class="text-center mb-8">
                 <div class="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                    <i class="fas fa-wallet text-yellow-300 text-3xl"></i>
+                    <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Background circle -->
+                        <circle cx="50" cy="50" r="45" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
+                        
+                        <!-- Dollar sign -->
+                        <path d="M45 20 L45 80 M35 30 Q35 25 40 25 L60 25 Q65 25 65 30 Q65 35 60 35 L40 35 Q35 35 35 40 Q35 45 40 45 L60 45 Q65 45 65 50 Q65 55 60 55 L40 55 Q35 55 35 60 Q35 65 40 65 L60 65 Q65 65 65 70 Q65 75 60 75 L40 75 Q35 75 35 70" 
+                              stroke="#059669" stroke-width="4" fill="none" stroke-linecap="round"/>
+                        
+                        <!-- Arrow pointing up (growth) -->
+                        <path d="M70 35 L80 25 L90 35 M80 25 L80 45" stroke="#059669" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                        
+                        <!-- Small coins -->
+                        <circle cx="25" cy="35" r="6" fill="#F59E0B" opacity="0.8"/>
+                        <circle cx="20" cy="50" r="4" fill="#FCD34D" opacity="0.9"/>
+                        <circle cx="30" cy="65" r="5" fill="#F59E0B" opacity="0.7"/>
+                    </svg>
                 </div>
                 <h2 class="text-3xl font-bold text-white mb-2">FinanceWay</h2>
                 <p class="text-white/70">Entre na sua conta para continuar</p>
@@ -180,7 +195,22 @@
                 <div class="flex items-center justify-between mb-4">
                     <h1 class="text-2xl font-bold text-white flex items-center">
                         <div class="bg-white/20 p-2 rounded-full mr-3">
-                            <i class="fas fa-wallet text-yellow-300 text-lg"></i>
+                            <svg width="24" height="24" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Background circle -->
+                                <circle cx="50" cy="50" r="45" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
+                                
+                                <!-- Dollar sign -->
+                                <path d="M45 20 L45 80 M35 30 Q35 25 40 25 L60 25 Q65 25 65 30 Q65 35 60 35 L40 35 Q35 35 35 40 Q35 45 40 45 L60 45 Q65 45 65 50 Q65 55 60 55 L40 55 Q35 55 35 60 Q35 65 40 65 L60 65 Q65 65 65 70 Q65 75 60 75 L40 75 Q35 75 35 70" 
+                                      stroke="#059669" stroke-width="4" fill="none" stroke-linecap="round"/>
+                                
+                                <!-- Arrow pointing up (growth) -->
+                                <path d="M70 35 L80 25 L90 35 M80 25 L80 45" stroke="#059669" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                
+                                <!-- Small coins -->
+                                <circle cx="25" cy="35" r="6" fill="#F59E0B" opacity="0.8"/>
+                                <circle cx="20" cy="50" r="4" fill="#FCD34D" opacity="0.9"/>
+                                <circle cx="30" cy="65" r="5" fill="#F59E0B" opacity="0.7"/>
+                            </svg>
                         </div>
                         <span class="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
                             FinanceWay
@@ -203,7 +233,22 @@
             <div class="hidden lg:flex items-center justify-between">
                 <h1 class="text-4xl font-bold text-white flex items-center">
                     <div class="bg-white/20 p-3 rounded-full mr-4">
-                        <i class="fas fa-wallet text-yellow-300 text-2xl"></i>
+                        <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Background circle -->
+                            <circle cx="50" cy="50" r="45" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
+                            
+                            <!-- Dollar sign -->
+                            <path d="M45 20 L45 80 M35 30 Q35 25 40 25 L60 25 Q65 25 65 30 Q65 35 60 35 L40 35 Q35 35 35 40 Q35 45 40 45 L60 45 Q65 45 65 50 Q65 55 60 55 L40 55 Q35 55 35 60 Q35 65 40 65 L60 65 Q65 65 65 70 Q65 75 60 75 L40 75 Q35 75 35 70" 
+                                  stroke="#059669" stroke-width="4" fill="none" stroke-linecap="round"/>
+                            
+                            <!-- Arrow pointing up (growth) -->
+                            <path d="M70 35 L80 25 L90 35 M80 25 L80 45" stroke="#059669" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            
+                            <!-- Small coins -->
+                            <circle cx="25" cy="35" r="6" fill="#F59E0B" opacity="0.8"/>
+                            <circle cx="20" cy="50" r="4" fill="#FCD34D" opacity="0.9"/>
+                            <circle cx="30" cy="65" r="5" fill="#F59E0B" opacity="0.7"/>
+                        </svg>
                     </div>
                     <span class="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
                         FinanceWay
@@ -577,6 +622,11 @@
                         <option value="alta">Alta</option>
                     </select>
                 </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+                    <input type="text" id="editObservations" maxlength="50" class="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300 text-sm sm:text-base" placeholder="Ex: Pagamento à vista, desconto...">
+                    <p class="text-xs text-gray-500 mt-1">Máximo 50 caracteres</p>
+                </div>
                 <div class="mb-6" id="editInstallmentsField" style="display: none;">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Parcelas</label>
                     <input type="text" id="editInstallments" placeholder="Ex: 2/6" class="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300 text-sm sm:text-base" readonly>
@@ -881,6 +931,7 @@
                     category: document.getElementById('category').value,
                     date: document.getElementById('date').value,
                     priority: document.getElementById('priority').value,
+                    observations: document.getElementById('observations').value.trim() || null,
                     completed: false,
                     createdAt: new Date().toISOString()
                 };
@@ -908,6 +959,7 @@
                 transaction.category = document.getElementById('editCategory').value;
                 transaction.date = document.getElementById('editDate').value;
                 transaction.priority = document.getElementById('editPriority').value;
+                transaction.observations = document.getElementById('editObservations').value.trim() || null;
                 transaction.updatedAt = new Date().toISOString();
                 
                 await saveTransactionToFirebase(transaction);
@@ -1284,6 +1336,7 @@
                 document.getElementById('editCategory').value = transaction.category;
                 document.getElementById('editDate').value = transaction.date;
                 document.getElementById('editPriority').value = transaction.priority || 'baixa';
+                document.getElementById('editObservations').value = transaction.observations || '';
                 
                 // Show installment info if it's an installment
                 const editInstallmentsField = document.getElementById('editInstallmentsField');
@@ -1639,5 +1692,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9830b34482c08',t:'MTc1NDkzMzk2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9924e22b55219',t:'MTc1NDkzNDU4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
