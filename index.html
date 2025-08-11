@@ -1662,10 +1662,15 @@
         }
 
         function editTransaction(id) {
-            const transaction = transactions.find(t => t.id === id);
-            if (!transaction) return;
+            console.log('Edit transaction chamado para ID:', id);
+            const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
+            if (!transaction) {
+                console.error('Transação não encontrada para editar, ID:', id);
+                return;
+            }
             
-            editingTransactionId = id;
+            editingTransactionId = transaction.firebaseId || transaction.id;
+            console.log('Editando transação:', transaction.description, 'Firebase ID:', editingTransactionId);
             
             // Preencher o formulário de edição
             document.getElementById('editType').value = transaction.type;
@@ -2026,7 +2031,8 @@
                         // Filtrar apenas eventos que são transações financeiras
                         if (data.isFinancialTransaction) {
                             window.transactions.push({
-                                id: doc.id,
+                                id: doc.id, // Usar o ID do documento do Firebase
+                                firebaseId: doc.id, // Manter referência explícita
                                 type: data.type || 'expense',
                                 description: data.description || 'Sem descrição',
                                 amount: data.amount || 0,
@@ -2073,6 +2079,7 @@
             
             try {
                 console.log('Salvando transação para usuário:', window.currentUser.uid);
+                console.log('Dados da transação:', transaction);
                 // Usar a estrutura /users/{userId}/events/ que suas regras permitem
                 const userEventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
                 const docRef = await window.addDoc(userEventsRef, {
@@ -2080,14 +2087,16 @@
                     isFinancialTransaction: true, // Marcar como transação financeira
                     createdAt: new Date().toISOString()
                 });
-                console.log('Transação salva com ID:', docRef.id);
+                console.log('✅ Transação salva com sucesso! ID:', docRef.id);
+                return docRef.id;
             } catch (error) {
-                console.error('Erro ao salvar transação:', error);
+                console.error('❌ Erro ao salvar transação:', error);
                 if (error.code === 'permission-denied') {
                     showMessage('❌ Sem permissão para salvar. Verifique se está logado!', 'error');
                 } else {
                     showMessage('Erro ao salvar transação: ' + error.message, 'error');
                 }
+                throw error;
             }
         }
 
@@ -2172,24 +2181,38 @@
 
         const originalTogglePaid = togglePaid;
         togglePaid = async function(id) {
-            const transaction = window.transactions.find(t => t.id === id);
+            console.log('Toggle paid chamado para ID:', id);
+            const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
             if (transaction) {
+                console.log('Transação encontrada:', transaction.description);
                 const updates = { paid: !transaction.paid };
-                await updateTransactionInFirebase(id, updates);
+                const firebaseId = transaction.firebaseId || transaction.id;
+                await updateTransactionInFirebase(firebaseId, updates);
                 
                 const element = document.querySelector(`[data-id="${id}"]`);
                 if (element) {
                     element.classList.add('pulse-success');
                     setTimeout(() => element.classList.remove('pulse-success'), 600);
                 }
+            } else {
+                console.error('Transação não encontrada para ID:', id);
             }
         };
 
         const originalDeleteTransaction = deleteTransaction;
         deleteTransaction = async function(id) {
             if (confirm('Tem certeza que deseja excluir esta transação?')) {
-                await deleteTransactionFromFirebase(id);
-                showSuccessMessage('Transação excluída!');
+                console.log('Delete chamado para ID:', id);
+                const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
+                if (transaction) {
+                    console.log('Transação encontrada para deletar:', transaction.description);
+                    const firebaseId = transaction.firebaseId || transaction.id;
+                    await deleteTransactionFromFirebase(firebaseId);
+                    showSuccessMessage('Transação excluída!');
+                } else {
+                    console.error('Transação não encontrada para deletar, ID:', id);
+                    showMessage('Transação não encontrada', 'error');
+                }
             }
         };
 
@@ -2198,6 +2221,14 @@
             e.preventDefault();
             
             if (!editingTransactionId) return;
+            
+            console.log('Update chamado para ID:', editingTransactionId);
+            const transaction = window.transactions.find(t => t.id === editingTransactionId || t.firebaseId === editingTransactionId);
+            if (!transaction) {
+                console.error('Transação não encontrada para editar, ID:', editingTransactionId);
+                showMessage('Transação não encontrada', 'error');
+                return;
+            }
             
             const updates = {
                 type: document.getElementById('editType').value,
@@ -2208,7 +2239,8 @@
                 updatedAt: new Date().toISOString()
             };
             
-            await updateTransactionInFirebase(editingTransactionId, updates);
+            const firebaseId = transaction.firebaseId || transaction.id;
+            await updateTransactionInFirebase(firebaseId, updates);
             closeEditModal();
             showSuccessMessage('Transação atualizada com sucesso!');
         };
@@ -2235,5 +2267,5 @@
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8410fd2275221',t:'MTc1NDkyMDc3My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d849ed05b55219',t:'MTc1NDkyMTEzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
