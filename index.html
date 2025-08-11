@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanceFlow - Organize suas Finanças</title>
+    <title>Controle Financeiro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, addDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+
+        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBhRH760_hAthw737CrzmioyZrzCeK5H8s",
             authDomain: "calendario-53e49.firebaseapp.com",
@@ -23,785 +25,489 @@
             appId: "1:352958232134:web:0775e16be712522b59bc47",
             measurementId: "G-8FYM5H6LCT"
         };
-        
+
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        // Disponibilizar globalmente
-        window.auth = auth;
-        window.db = db;
-        window.GoogleAuthProvider = GoogleAuthProvider;
+        const analytics = getAnalytics(app);
+        window.auth = getAuth(app);
+        window.db = getFirestore(app);
+        window.currentUser = null;
+        window.googleProvider = new GoogleAuthProvider();
+
+        // Disponibilizar funções globalmente
         window.signInWithEmailAndPassword = signInWithEmailAndPassword;
         window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
         window.signInWithPopup = signInWithPopup;
+        window.GoogleAuthProvider = GoogleAuthProvider;
         window.signOut = signOut;
         window.onAuthStateChanged = onAuthStateChanged;
-        window.updateProfile = updateProfile;
-        window.collection = collection;
-        window.addDoc = addDoc;
-        window.getDocs = getDocs;
-        window.getDoc = getDoc;
         window.doc = doc;
-        window.updateDoc = updateDoc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.collection = collection;
+        window.getDocs = getDocs;
         window.deleteDoc = deleteDoc;
-        window.query = query;
-        window.where = where;
-        window.orderBy = orderBy;
+        window.addDoc = addDoc;
         window.onSnapshot = onSnapshot;
-        
-        // Inicializar listener de autenticação quando o DOM estiver pronto
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeAuth();
-        });
-        
-        function initializeAuth() {
-            console.log('Inicializando autenticação...');
-            
-            onAuthStateChanged(auth, (user) => {
-                console.log('Estado de autenticação mudou:', user ? 'logado' : 'deslogado');
-                
-                if (user) {
-                    window.currentUser = user;
-                    console.log('Usuário logado:', user.uid, user.email);
-                    
-                    // Mostrar nome do usuário
-                    const displayName = user.displayName || user.email.split('@')[0];
-                    const userDisplayElement = document.getElementById('userDisplayName');
-                    if (userDisplayElement) {
-                        userDisplayElement.textContent = displayName;
-                    }
-                    
-                    // Esconder tela de login e mostrar app
-                    const loginScreen = document.getElementById('loginScreen');
-                    const appContainer = document.getElementById('appContainer');
-                    
-                    if (loginScreen && appContainer) {
-                        loginScreen.classList.add('hidden');
-                        appContainer.classList.remove('hidden');
-                    }
-                    
-                    // Aguardar um pouco antes de carregar transações
-                    setTimeout(() => {
-                        window.loadTransactionsFromFirebase();
-                    }, 500);
-                    
-                } else {
-                    console.log('Usuário deslogado');
-                    window.currentUser = null;
-                    
-                    // Limpar dados locais
-                    window.transactions = [];
-                    if (window.unsubscribeTransactions) {
-                        window.unsubscribeTransactions();
-                        window.unsubscribeTransactions = null;
-                    }
-                    
-                    // Mostrar tela de login e esconder app
-                    const loginScreen = document.getElementById('loginScreen');
-                    const appContainer = document.getElementById('appContainer');
-                    
-                    if (loginScreen && appContainer) {
-                        loginScreen.classList.remove('hidden');
-                        appContainer.classList.add('hidden');
-                    }
-                }
-            });
-        }
+        window.query = query;
+        window.orderBy = orderBy;
     </script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-        
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .card-hover {
-            transition: all 0.3s ease;
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-        
-        .slide-in {
-            animation: slideIn 0.5s ease-out;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.3s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .pulse-success {
-            animation: pulseSuccess 0.6s ease-in-out;
-        }
-        
-        @keyframes pulseSuccess {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        .expense-item {
-            transition: all 0.3s ease;
-        }
-        
-        .expense-item.paid {
-            opacity: 0.7;
-            transform: scale(0.98);
-        }
-        
-        .expense-item.paid .expense-text {
-            text-decoration: line-through;
-            color: #9ca3af;
-        }
-        
-        .floating-add {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 1000;
-            transition: all 0.3s ease;
-        }
-        
-        .floating-add:hover {
-            transform: scale(1.1);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-        }
-        
-        .modal-backdrop {
-            backdrop-filter: blur(5px);
-        }
-        
-        .progress-bar {
-            transition: width 0.5s ease;
-        }
-        
-        .nav-tab {
-            transition: all 0.3s ease;
-        }
-        
-        .nav-tab.active {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        
         .calendar-day {
-            transition: all 0.2s ease;
+            min-height: 80px;
             position: relative;
         }
-        
-        .calendar-day:hover {
-            background-color: #f3f4f6;
-        }
-        
-        .calendar-day.selected {
-            background-color: #667eea;
-            color: white;
-        }
-        
-        .calendar-day.has-transactions {
-            font-weight: 600;
-        }
-        
         .transaction-dot {
-            position: absolute;
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
+            position: absolute;
             top: 2px;
         }
-        
-        .dot-expense {
-            background-color: #ef4444;
-            right: 2px;
+        .expense-dot { background-color: #ef4444; }
+        .income-dot { background-color: #10b981; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
-        .dot-income {
-            background-color: #10b981;
-            right: 10px;
+        .hover\:scale-102:hover {
+            transform: scale(1.02);
         }
         
-        .chart-container {
-            position: relative;
-            height: 300px;
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .animate-bounce-slow {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .completed-transaction {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
         .login-container {
             backdrop-filter: blur(10px);
-            background: rgba(0, 0, 0, 0.5);
-        }
-        
-        .login-modal {
-            animation: slideInUp 0.4s ease-out;
-        }
-        
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .btn-loading {
-            position: relative;
-            color: transparent !important;
-        }
-        
-        .btn-loading::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            top: 50%;
-            left: 50%;
-            margin-left: -8px;
-            margin-top: -8px;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        
-        .google-btn {
-            transition: all 0.3s ease;
-            background: white;
-            border: 1px solid #dadce0;
-        }
-        
-        .google-btn:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transform: translateY(-1px);
-        }
-        
-        .password-toggle {
-            transition: all 0.2s ease;
-        }
-        
-        .password-toggle:hover {
-            color: #3b82f6;
-        }
-        
-        .form-transition {
-            transition: all 0.3s ease;
-        }
-        
-        .app-container {
-            transition: all 0.5s ease;
-        }
-        
-        .app-container.hidden {
-            opacity: 0;
-            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-container fixed inset-0 flex items-center justify-center z-50">
-        <div class="login-modal bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8">
-            <!-- Login Form -->
-            <div id="loginForm" class="form-transition">
-                <div class="text-center mb-8">
-                    <div class="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-chart-line text-white text-2xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800">Bem-vindo ao FinanceFlow</h2>
-                    <p class="text-gray-600 mt-2">Entre para gerenciar suas finanças</p>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen">
+    
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="login-container rounded-2xl p-8 w-full max-w-md mx-4 border border-white/20 shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                    <i class="fas fa-wallet text-yellow-300 text-3xl"></i>
                 </div>
-
-                <!-- Google Login Button -->
-                <button id="googleLoginBtn" class="google-btn w-full py-3 px-4 rounded-lg flex items-center justify-center space-x-3 mb-6">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    <span class="text-gray-700 font-medium">Continuar com Google</span>
-                </button>
-
-                <div class="relative mb-6">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white text-gray-500">ou</span>
-                    </div>
-                </div>
-
-                <!-- Email/Password Form -->
-                <form id="emailLoginForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="seu@email.com">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
-                        <div class="relative">
-                            <input type="password" id="loginPassword" required class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="••••••••">
-                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" onclick="togglePasswordVisibility('loginPassword', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-all font-medium">
-                        Entrar
-                    </button>
-                </form>
-
-                <div class="text-center mt-6">
-                    <p class="text-gray-600">Não tem uma conta? 
-                        <button onclick="showRegisterForm()" class="text-blue-600 hover:text-blue-700 font-medium transition-colors">Cadastre-se</button>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Register Form -->
-            <div id="registerForm" class="form-transition hidden">
-                <div class="text-center mb-8">
-                    <div class="w-16 h-16 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-user-plus text-white text-2xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800">Criar Conta</h2>
-                    <p class="text-gray-600 mt-2">Cadastre-se para começar</p>
-                </div>
-
-                <form id="emailRegisterForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-                        <input type="text" id="registerName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Seu nome completo">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <input type="email" id="registerEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="seu@email.com">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
-                        <div class="relative">
-                            <input type="password" id="registerPassword" required class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="••••••••">
-                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" onclick="togglePasswordVisibility('registerPassword', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirmar Senha</label>
-                        <div class="relative">
-                            <input type="password" id="confirmPassword" required class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="••••••••">
-                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" onclick="togglePasswordVisibility('confirmPassword', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <button type="submit" id="registerBtn" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-all font-medium">
-                        Criar Conta
-                    </button>
-                </form>
-
-                <div class="text-center mt-6">
-                    <p class="text-gray-600">Já tem uma conta? 
-                        <button onclick="showLoginForm()" class="text-blue-600 hover:text-blue-700 font-medium transition-colors">Faça login</button>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main App Container -->
-    <div id="appContainer" class="app-container hidden">
-    <!-- Header -->
-    <header class="gradient-bg text-white shadow-lg">
-        <div class="container mx-auto px-6 py-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold flex items-center">
-                        <i class="fas fa-chart-line mr-3"></i>
-                        FinanceFlow
-                    </h1>
-                    <p class="text-blue-100 mt-2">Organize suas finanças de forma inteligente</p>
-                </div>
-                <div class="text-right flex items-center space-x-4">
-                    <div>
-                        <p class="text-blue-100">Saldo Total</p>
-                        <p class="text-2xl font-bold" id="totalBalance">R$ 0,00</p>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <div class="text-right">
-                            <p class="text-blue-100 text-sm">Olá,</p>
-                            <p class="text-white font-medium" id="userDisplayName">Usuário</p>
-                        </div>
-                        <button onclick="logout()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-all" title="Sair">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </button>
-                    </div>
-                </div>
+                <h2 class="text-3xl font-bold text-white mb-2">Controle Financeiro</h2>
+                <p class="text-white/70">Entre na sua conta para continuar</p>
             </div>
             
-            <!-- Navigation Tabs -->
-            <div class="flex space-x-4 mt-6">
-                <button class="nav-tab active px-6 py-3 rounded-lg text-white" onclick="showTab('dashboard')">
-                    <i class="fas fa-home mr-2"></i>Dashboard
+            <div class="space-y-4">
+                <button onclick="signInWithGoogle()" class="w-full bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 px-6 rounded-xl hover:from-red-400 hover:to-red-500 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                    <i class="fab fa-google mr-2"></i>Entrar com Google
                 </button>
-                <button class="nav-tab px-6 py-3 rounded-lg text-blue-100 hover:text-white" onclick="showTab('analytics')">
-                    <i class="fas fa-chart-bar mr-2"></i>Gráficos
+                <div class="flex items-center my-4">
+                    <div class="flex-1 border-t border-white/30"></div>
+                    <span class="px-4 text-white/70 text-sm">ou</span>
+                    <div class="flex-1 border-t border-white/30"></div>
+                </div>
+                <button onclick="showLoginForm()" id="loginBtn" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-3 px-6 rounded-xl hover:from-indigo-400 hover:to-purple-500 transition-all duration-300 transform hover:scale-105">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Entrar com Email
                 </button>
-                <button class="nav-tab px-6 py-3 rounded-lg text-blue-100 hover:text-white" onclick="showTab('calendar')">
-                    <i class="fas fa-calendar mr-2"></i>Calendário
+                <button onclick="showRegisterForm()" id="registerBtn" class="w-full bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold py-3 px-6 rounded-xl hover:from-green-400 hover:to-teal-500 transition-all duration-300 transform hover:scale-105">
+                    <i class="fas fa-user-plus mr-2"></i>Criar Conta
                 </button>
             </div>
-        </div>
-    </header>
 
-    <!-- Dashboard Tab -->
-    <div id="dashboardTab" class="tab-content">
-        <!-- Lembretes Diários -->
-        <div id="dailyReminders" class="container mx-auto px-6 pt-8 pb-4">
-            <!-- Lembretes serão inseridos aqui -->
-        </div>
-        
-        <!-- Dashboard Cards -->
-        <div class="container mx-auto px-6 py-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <!-- Receitas Card -->
-                <div class="bg-white rounded-xl shadow-lg p-6 card-hover slide-in">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-600 text-sm">Receitas</p>
-                            <p class="text-2xl font-bold text-green-600" id="totalIncome">R$ 0,00</p>
-                        </div>
-                        <div class="bg-green-100 p-3 rounded-full">
-                            <i class="fas fa-arrow-up text-green-600 text-xl"></i>
-                        </div>
-                    </div>
+            <!-- Login Form -->
+            <form id="loginForm" class="hidden space-y-4 mt-6">
+                <div>
+                    <input type="email" id="loginEmail" placeholder="Email" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300" required>
                 </div>
+                <div>
+                    <input type="password" id="loginPassword" placeholder="Senha" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300" required>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-3 px-6 rounded-xl hover:from-indigo-400 hover:to-purple-500 transition-all duration-300">
+                    Entrar
+                </button>
+                <button type="button" onclick="hideLoginForm()" class="w-full text-white/70 hover:text-white transition-all duration-300">
+                    Voltar
+                </button>
+            </form>
 
-                <!-- Despesas Card -->
-                <div class="bg-white rounded-xl shadow-lg p-6 card-hover slide-in" style="animation-delay: 0.1s">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-600 text-sm">Despesas</p>
-                            <p class="text-2xl font-bold text-red-600" id="totalExpenses">R$ 0,00</p>
-                        </div>
-                        <div class="bg-red-100 p-3 rounded-full">
-                            <i class="fas fa-arrow-down text-red-600 text-xl"></i>
-                        </div>
-                    </div>
+            <!-- Register Form -->
+            <form id="registerForm" class="hidden space-y-4 mt-6">
+                <div>
+                    <input type="email" id="registerEmail" placeholder="Email" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300" required>
                 </div>
-
-                <!-- Contas Pagas Card -->
-                <div class="bg-white rounded-xl shadow-lg p-6 card-hover slide-in" style="animation-delay: 0.2s">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-600 text-sm">Contas Pagas</p>
-                            <p class="text-2xl font-bold text-blue-600"><span id="paidCount">0</span>/<span id="totalCount">0</span></p>
-                        </div>
-                        <div class="bg-blue-100 p-3 rounded-full">
-                            <i class="fas fa-check-circle text-blue-600 text-xl"></i>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <div class="bg-gray-200 rounded-full h-2">
-                            <div class="bg-blue-600 h-2 rounded-full progress-bar" id="progressBar" style="width: 0%"></div>
-                        </div>
-                    </div>
+                <div>
+                    <input type="password" id="registerPassword" placeholder="Senha (mín. 6 caracteres)" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300" required>
                 </div>
-            </div>
-
-            <!-- Filtros -->
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-8 slide-in" style="animation-delay: 0.3s">
-                <div class="flex flex-wrap gap-4 items-center">
-                    <div class="flex items-center space-x-2">
-                        <label class="text-sm font-medium text-gray-700">Mês/Ano:</label>
-                        <select id="monthYearFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <!-- Opções serão preenchidas dinamicamente -->
-                        </select>
-                    </div>
-                    <button class="filter-btn bg-blue-600 text-white px-4 py-2 rounded-lg transition-all hover:bg-blue-700" data-filter="all">
-                        Todas
-                    </button>
-                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-all hover:bg-gray-300" data-filter="pending">
-                        Pendentes
-                    </button>
-                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-all hover:bg-gray-300" data-filter="paid">
-                        Pagas
-                    </button>
-                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-all hover:bg-gray-300" data-filter="income">
-                        Receitas
-                    </button>
-                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-all hover:bg-gray-300" data-filter="expense">
-                        Despesas
-                    </button>
-                </div>
-            </div>
-
-            <!-- Lista de Transações -->
-            <div class="bg-white rounded-xl shadow-lg slide-in" style="animation-delay: 0.4s">
-                <div class="p-6 border-b border-gray-200">
-                    <h2 class="text-xl font-semibold text-gray-800">Suas Finanças</h2>
-                </div>
-                <div class="p-6">
-                    <div id="transactionsList" class="space-y-4">
-                        <!-- Transações serão inseridas aqui -->
-                    </div>
-                    <div id="emptyState" class="text-center py-12">
-                        <i class="fas fa-wallet text-gray-300 text-6xl mb-4"></i>
-                        <p class="text-gray-500 text-lg">Nenhuma transação ainda</p>
-                        <p class="text-gray-400">Clique no botão + para adicionar sua primeira transação</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Analytics Tab -->
-    <div id="analyticsTab" class="tab-content hidden">
-        <div class="container mx-auto px-6 py-8">
-            <!-- Barra de Pesquisa -->
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-8 slide-in">
-                <div class="flex flex-wrap gap-4 items-center">
-                    <div class="flex-1 min-w-64">
-                        <div class="relative">
-                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                            <input type="text" id="searchInput" placeholder="Pesquisar por descrição, categoria..." class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
-                    <select id="analyticsYearFilter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="all">Todos os anos</option>
-                    </select>
-                    <select id="analyticsMonthFilter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="all">Todos os meses</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Gráficos -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <!-- Gráfico de Categorias -->
-                <div class="bg-white rounded-xl shadow-lg p-6 slide-in">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Gastos por Categoria</h3>
-                    <div class="chart-container">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico Mensal -->
-                <div class="bg-white rounded-xl shadow-lg p-6 slide-in">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Receitas vs Despesas por Mês/Ano</h3>
-                    <div class="chart-container">
-                        <canvas id="monthlyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Ranking de Meses -->
-            <div class="bg-white rounded-xl shadow-lg p-6 slide-in">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4">Ranking de Gastos por Mês</h3>
-                <div id="monthlyRanking" class="space-y-3">
-                    <!-- Ranking será inserido aqui -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Calendar Tab -->
-    <div id="calendarTab" class="tab-content hidden">
-        <div class="container mx-auto px-6 py-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Calendário -->
-                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 slide-in">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-xl font-semibold text-gray-800">Calendário Financeiro</h3>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="previousMonth()" class="p-2 hover:bg-gray-100 rounded-lg">
-                                <i class="fas fa-chevron-left text-gray-600"></i>
-                            </button>
-                            <span id="currentMonth" class="font-semibold text-gray-800"></span>
-                            <button onclick="nextMonth()" class="p-2 hover:bg-gray-100 rounded-lg">
-                                <i class="fas fa-chevron-right text-gray-600"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Legenda -->
-                    <div class="flex items-center space-x-6 mb-4 text-sm">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-                            <span class="text-gray-600">Despesas</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span class="text-gray-600">Receitas</span>
-                        </div>
-                    </div>
-                    
-                    <div id="calendar" class="grid grid-cols-7 gap-1">
-                        <!-- Calendário será inserido aqui -->
-                    </div>
-                </div>
-
-                <!-- Transações do Dia Selecionado -->
-                <div class="bg-white rounded-xl shadow-lg p-6 slide-in">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
-                        <span id="selectedDateTitle">Selecione um dia</span>
-                    </h3>
-                    <div id="dayTransactions" class="space-y-3">
-                        <p class="text-gray-500 text-center py-8">Clique em um dia do calendário para ver as transações</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Botão Flutuante -->
-    <button class="floating-add bg-blue-600 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center" onclick="openModal()">
-        <i class="fas fa-plus text-xl"></i>
-    </button>
-
-    <!-- Modal Adicionar -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
-            <div class="p-6 border-b border-gray-200">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-semibold text-gray-800">Nova Transação</h3>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-            </div>
-            <form id="transactionForm" class="p-6">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                        <select id="type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="expense">Despesa</option>
-                            <option value="income">Receita</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-                        <input type="text" id="description" placeholder="Ex: Conta de luz, Salário..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Valor (R$)</label>
-                        <input type="number" id="amount" step="0.01" placeholder="0,00" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Data de Vencimento</label>
-                        <input type="date" id="dueDate" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-                        <select id="category" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="alimentacao">🍽️ Alimentação</option>
-                            <option value="transporte">🚗 Transporte</option>
-                            <option value="moradia">🏠 Moradia</option>
-                            <option value="saude">🏥 Saúde</option>
-                            <option value="educacao">📚 Educação</option>
-                            <option value="lazer">🎮 Lazer</option>
-                            <option value="trabalho">💼 Trabalho</option>
-                            <option value="salario">💰 Salário</option>
-                            <option value="outros">📋 Outros</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="flex gap-3 mt-6">
-                    <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Adicionar
-                    </button>
-                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold py-3 px-6 rounded-xl hover:from-green-400 hover:to-teal-500 transition-all duration-300">
+                    Criar Conta
+                </button>
+                <button type="button" onclick="hideRegisterForm()" class="w-full text-white/70 hover:text-white transition-all duration-300">
+                    Voltar
+                </button>
             </form>
         </div>
     </div>
 
-    <!-- Modal Editar -->
-    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
-            <div class="p-6 border-b border-gray-200">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-semibold text-gray-800">Editar Transação</h3>
-                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-2xl">
+        <div class="container mx-auto px-6 py-6">
+            <div class="flex items-center justify-between">
+                <h1 class="text-4xl font-bold text-white flex items-center">
+                    <div class="bg-white/20 p-3 rounded-full mr-4">
+                        <i class="fas fa-wallet text-yellow-300 text-2xl"></i>
+                    </div>
+                    <span class="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+                        Controle Financeiro
+                    </span>
+                </h1>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                        <p class="text-sm text-white/80 font-medium">💰 Saldo Atual</p>
+                        <p id="currentBalance" class="text-3xl font-bold text-white">R$ 0,00</p>
+                    </div>
+                    <div id="userInfo" class="hidden bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                        <p class="text-sm text-white/80">Usuário:</p>
+                        <p id="userEmail" class="text-white font-semibold"></p>
+                        <button onclick="logout()" class="text-xs text-white/70 hover:text-white mt-1">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Sair
+                        </button>
+                    </div>
                 </div>
             </div>
-            <form id="editTransactionForm" class="p-6">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                        <select id="editType" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="expense">Despesa</option>
-                            <option value="income">Receita</option>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Navigation Tabs -->
+        <div class="bg-white/10 backdrop-blur-sm rounded-2xl shadow-xl mb-8 border border-white/20">
+            <div class="flex p-2">
+                <button onclick="showTab('transactions')" class="tab-btn flex-1 px-6 py-4 font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300">
+                    <i class="fas fa-list mr-2"></i>💳 Transações
+                </button>
+                <button onclick="showTab('dashboard')" class="tab-btn flex-1 px-6 py-4 font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 mx-2">
+                    <i class="fas fa-chart-pie mr-2"></i>📊 Dashboard
+                </button>
+                <button onclick="showTab('calendar')" class="tab-btn flex-1 px-6 py-4 font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300">
+                    <i class="fas fa-calendar mr-2"></i>📅 Calendário
+                </button>
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <!-- Reminders -->
+            <div id="reminders" class="mb-6">
+                <!-- Reminders will be populated here -->
+            </div>
+            
+            <!-- Add Transaction Form -->
+            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 mb-8 transform hover:scale-105 transition-all duration-300">
+                <h3 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <i class="fas fa-plus-circle mr-3 text-yellow-300"></i>
+                    Nova Transação
+                </h3>
+                <form id="transactionForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Descrição</label>
+                        <input type="text" id="description" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300" placeholder="Ex: Compra no supermercado" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Valor</label>
+                        <input type="number" id="amount" step="0.01" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300" placeholder="0,00" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Tipo</label>
+                        <select id="type" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300">
+                            <option value="income" class="text-gray-800">💰 Receita</option>
+                            <option value="expense" class="text-gray-800">💸 Despesa</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-                        <input type="text" id="editDescription" placeholder="Ex: Conta de luz, Salário..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Categoria</label>
+                        <select id="category" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300">
+                            <option value="alimentacao" class="text-gray-800">🍽️ Alimentação</option>
+                            <option value="transporte" class="text-gray-800">🚗 Transporte</option>
+                            <option value="moradia" class="text-gray-800">🏠 Moradia</option>
+                            <option value="saude" class="text-gray-800">🏥 Saúde</option>
+                            <option value="educacao" class="text-gray-800">📚 Educação</option>
+                            <option value="lazer" class="text-gray-800">🎮 Lazer</option>
+                            <option value="salario" class="text-gray-800">💼 Salário</option>
+                            <option value="freelance" class="text-gray-800">💻 Freelance</option>
+                            <option value="investimentos" class="text-gray-800">📈 Investimentos</option>
+                            <option value="outros" class="text-gray-800">📦 Outros</option>
+                        </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Valor (R$)</label>
-                        <input type="number" id="editAmount" step="0.01" placeholder="0,00" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Data</label>
+                        <input type="date" id="date" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300" required>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Data de Vencimento</label>
-                        <input type="date" id="editDueDate" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-white">Prioridade</label>
+                        <select id="priority" class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300">
+                            <option value="baixa" class="text-gray-800">🟢 Baixa</option>
+                            <option value="media" class="text-gray-800">🟡 Média</option>
+                            <option value="alta" class="text-gray-800">🔴 Alta</option>
+                        </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-                        <select id="editCategory" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="md:col-span-2 lg:col-span-3 flex justify-center mt-4">
+                        <button type="submit" class="bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold py-4 px-8 rounded-xl hover:from-yellow-300 hover:to-orange-400 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <i class="fas fa-plus mr-2"></i>Adicionar Transação
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filters and Search -->
+            <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">🔍 Pesquisar</label>
+                        <input type="text" id="searchInput" placeholder="Buscar transações..." class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">📊 Filtro</label>
+                        <select id="filterType" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                            <option value="all">Todas</option>
+                            <option value="income">Receitas</option>
+                            <option value="expense">Despesas</option>
+                            <option value="pending">Pendentes</option>
+                            <option value="completed">Concluídas</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">🏷️ Categoria</label>
+                        <select id="filterCategory" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                            <option value="all">Todas</option>
                             <option value="alimentacao">🍽️ Alimentação</option>
                             <option value="transporte">🚗 Transporte</option>
                             <option value="moradia">🏠 Moradia</option>
                             <option value="saude">🏥 Saúde</option>
                             <option value="educacao">📚 Educação</option>
                             <option value="lazer">🎮 Lazer</option>
-                            <option value="trabalho">💼 Trabalho</option>
-                            <option value="salario">💰 Salário</option>
-                            <option value="outros">📋 Outros</option>
+                            <option value="salario">💼 Salário</option>
+                            <option value="freelance">💻 Freelance</option>
+                            <option value="investimentos">📈 Investimentos</option>
+                            <option value="outros">📦 Outros</option>
                         </select>
                     </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">📅 Mês/Ano</label>
+                        <input type="month" id="filterMonth" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="applyFilters()" class="w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white font-semibold py-3 px-6 rounded-xl hover:from-gray-500 hover:to-gray-600 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <i class="fas fa-filter mr-2"></i>Filtrar
+                        </button>
+                    </div>
                 </div>
-                <div class="flex gap-3 mt-6">
-                    <button type="button" onclick="closeEditModal()" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            </div>
+
+            <!-- Transactions List -->
+            <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-list-alt mr-3"></i>
+                        Suas Transações
+                    </h3>
+                </div>
+                <div id="transactionsList" class="divide-y divide-gray-100">
+                    <!-- Transactions will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content hidden">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                <div class="bg-gradient-to-br from-green-400 to-green-600 rounded-2xl shadow-xl p-8 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm font-medium">Total Receitas</p>
+                            <p id="totalIncome2" class="text-3xl font-bold mt-2">R$ 0,00</p>
+                        </div>
+                        <div class="bg-white/20 p-4 rounded-full">
+                            <i class="fas fa-arrow-trend-up text-2xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-green-200"></i>
+                        <span class="text-green-100 text-sm">Entradas do mês</span>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-red-400 to-red-600 rounded-2xl shadow-xl p-8 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-red-100 text-sm font-medium">Total Despesas</p>
+                            <p id="totalExpenses2" class="text-3xl font-bold mt-2">R$ 0,00</p>
+                        </div>
+                        <div class="bg-white/20 p-4 rounded-full">
+                            <i class="fas fa-arrow-trend-down text-2xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center">
+                        <i class="fas fa-chart-line-down mr-2 text-red-200"></i>
+                        <span class="text-red-100 text-sm">Saídas do mês</span>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl shadow-xl p-8 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Contas Pendentes</p>
+                            <p id="pendingCount2" class="text-3xl font-bold mt-2">0</p>
+                        </div>
+                        <div class="bg-white/20 p-4 rounded-full">
+                            <i class="fas fa-clock text-2xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2 text-blue-200"></i>
+                        <span class="text-blue-100 text-sm">Aguardando pagamento</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20 transform hover:scale-105 transition-all duration-300">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-chart-pie mr-3 text-indigo-600"></i>
+                        Gastos por Categoria
+                    </h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20 transform hover:scale-105 transition-all duration-300">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-chart-line mr-3 text-purple-600"></i>
+                        Evolução Mensal
+                    </h3>
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Tab -->
+        <div id="calendar" class="tab-content hidden">
+            <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-calendar-alt mr-3 text-indigo-600"></i>
+                        Calendário Financeiro
+                    </h3>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="previousMonth()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-xl hover:from-indigo-400 hover:to-purple-500 transform hover:scale-105 transition-all duration-300 shadow-lg">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="currentMonth" class="text-xl font-bold text-gray-800 min-w-48 text-center"></span>
+                        <button onclick="nextMonth()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-xl hover:from-indigo-400 hover:to-purple-500 transform hover:scale-105 transition-all duration-300 shadow-lg">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-6 flex items-center justify-center space-x-8 text-sm bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-red-500 rounded-full mr-3 shadow-md"></div>
+                        <span class="font-semibold text-gray-700">💸 Despesas</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-500 rounded-full mr-3 shadow-md"></div>
+                        <span class="font-semibold text-gray-700">💰 Receitas</span>
+                    </div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-2 bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl shadow-inner">
+                    <!-- Calendar will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day Transactions Modal -->
+    <div id="dayModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-3xl mx-4 max-h-96 overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="dayModalTitle" class="text-2xl font-bold text-gray-800"></h3>
+                <button onclick="closeDayModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all duration-300">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="dayTransactions" class="space-y-4">
+                <!-- Day transactions will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6">Editar Transação</h3>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                    <input type="text" id="editDescription" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
+                    <input type="number" id="editAmount" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
+                    <select id="editCategory" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
+                        <option value="alimentacao">Alimentação</option>
+                        <option value="transporte">Transporte</option>
+                        <option value="moradia">Moradia</option>
+                        <option value="saude">Saúde</option>
+                        <option value="educacao">Educação</option>
+                        <option value="lazer">Lazer</option>
+                        <option value="salario">Salário</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="investimentos">Investimentos</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Data</label>
+                    <input type="date" id="editDate" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prioridade</label>
+                    <select id="editPriority" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
+                        <option value="baixa">Baixa</option>
+                        <option value="media">Média</option>
+                        <option value="alta">Alta</option>
+                    </select>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-gray-300 text-gray-700 py-3 px-6 rounded-xl hover:bg-gray-400 transition-all duration-300 font-semibold">
                         Cancelar
                     </button>
-                    <button type="submit" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-6 rounded-xl hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 font-semibold">
                         Salvar
                     </button>
                 </div>
@@ -810,23 +516,776 @@
     </div>
 
     <script>
-        window.transactions = [];
-        let currentFilter = 'all';
-        let selectedMonthYear = 'all';
-        let currentCalendarDate = new Date();
-        let selectedCalendarDate = null;
-        let categoryChart = null;
-        let monthlyChart = null;
-        let editingTransactionId = null;
+        // Data storage
+        let transactions = [];
+        let currentDate = new Date();
+        let categoryChart, monthlyChart;
+        let unsubscribeTransactions = null;
 
-        // Definir data padrão como hoje
-        document.getElementById('dueDate').valueAsDate = new Date();
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAuth();
+            document.getElementById('date').valueAsDate = new Date();
+            initCharts();
+        });
 
-        function saveTransactions() {
-            // Função mantida para compatibilidade, mas não usa mais localStorage
-            // Os dados são salvos automaticamente no Firebase
+        // Firebase Authentication
+        function initializeAuth() {
+            if (window.auth && window.onAuthStateChanged) {
+                window.onAuthStateChanged(window.auth, (user) => {
+                    if (user) {
+                        window.currentUser = user;
+                        document.getElementById('loginModal').classList.add('hidden');
+                        document.getElementById('userInfo').classList.remove('hidden');
+                        document.getElementById('userEmail').textContent = user.email || user.displayName;
+                        setupRealtimeListener();
+                    } else {
+                        window.currentUser = null;
+                        document.getElementById('loginModal').classList.remove('hidden');
+                        document.getElementById('userInfo').classList.add('hidden');
+                        if (unsubscribeTransactions) {
+                            unsubscribeTransactions();
+                            unsubscribeTransactions = null;
+                        }
+                        transactions = [];
+                        updateDashboard();
+                        renderTransactions();
+                        renderCalendar();
+                        renderReminders();
+                        updateCharts();
+                    }
+                });
+            }
         }
 
+        // Login functions
+        function showLoginForm() {
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('registerBtn').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
+
+        function hideLoginForm() {
+            document.getElementById('loginBtn').classList.remove('hidden');
+            document.getElementById('registerBtn').classList.remove('hidden');
+            document.getElementById('loginForm').classList.add('hidden');
+        }
+
+        function showRegisterForm() {
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('registerBtn').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+
+        function hideRegisterForm() {
+            document.getElementById('loginBtn').classList.remove('hidden');
+            document.getElementById('registerBtn').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+        }
+
+        // Google Sign In
+        async function signInWithGoogle() {
+            try {
+                const result = await window.signInWithPopup(window.auth, window.googleProvider);
+                // User is signed in automatically by onAuthStateChanged
+            } catch (error) {
+                console.error('Erro no login com Google:', error);
+                alert('Erro ao fazer login com Google: ' + error.message);
+            }
+        }
+
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                await window.signInWithEmailAndPassword(window.auth, email, password);
+            } catch (error) {
+                alert('Erro ao fazer login: ' + error.message);
+            }
+        });
+
+        // Register form handler
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            
+            try {
+                await window.createUserWithEmailAndPassword(window.auth, email, password);
+            } catch (error) {
+                alert('Erro ao criar conta: ' + error.message);
+            }
+        });
+
+        // Logout function
+        async function logout() {
+            try {
+                await window.signOut(window.auth);
+                showSuccessMessage('Logout realizado com sucesso!');
+            } catch (error) {
+                alert('Erro ao sair: ' + error.message);
+            }
+        }
+
+        // Firebase data functions with real-time sync
+        function setupRealtimeListener() {
+            if (!window.currentUser || !window.db) return;
+            
+            try {
+                const eventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
+                const q = window.query(eventsRef, window.orderBy('date', 'desc'));
+                
+                unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
+                    transactions = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        transactions.push({
+                            id: doc.id,
+                            ...data
+                        });
+                    });
+                    
+                    updateDashboard();
+                    renderTransactions();
+                    renderCalendar();
+                    renderReminders();
+                    updateCharts();
+                }, (error) => {
+                    console.error('Erro ao escutar mudanças:', error);
+                });
+            } catch (error) {
+                console.error('Erro ao configurar listener:', error);
+            }
+        }
+
+        async function saveTransactionToFirebase(transaction) {
+            if (!window.currentUser || !window.db) return;
+            
+            try {
+                const eventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
+                
+                if (transaction.id && typeof transaction.id === 'string') {
+                    // Update existing transaction
+                    const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', transaction.id);
+                    await window.setDoc(docRef, transaction);
+                } else {
+                    // Add new transaction
+                    const docRef = await window.addDoc(eventsRef, transaction);
+                    transaction.id = docRef.id;
+                }
+            } catch (error) {
+                console.error('Erro ao salvar transação:', error);
+                alert('Erro ao salvar transação. Tente novamente.');
+            }
+        }
+
+        async function deleteTransactionFromFirebase(transactionId) {
+            if (!window.currentUser || !window.db) return;
+            
+            try {
+                const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', transactionId);
+                await window.deleteDoc(docRef);
+            } catch (error) {
+                console.error('Erro ao excluir transação:', error);
+                alert('Erro ao excluir transação. Tente novamente.');
+            }
+        }
+
+        // Tab functionality
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold');
+                btn.classList.add('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/10');
+            });
+            
+            document.getElementById(tabName).classList.remove('hidden');
+            event.target.classList.remove('text-white/70', 'font-semibold', 'hover:text-white', 'hover:bg-white/10');
+            event.target.classList.add('bg-gradient-to-r', 'from-indigo-500', 'to-purple-600', 'shadow-lg', 'text-white', 'font-bold');
+        }
+
+        // Transaction form
+        document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const transaction = {
+                description: document.getElementById('description').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value,
+                category: document.getElementById('category').value,
+                date: document.getElementById('date').value,
+                priority: document.getElementById('priority').value,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            await saveTransactionToFirebase(transaction);
+            
+            this.reset();
+            document.getElementById('date').valueAsDate = new Date();
+            
+            // Show success message
+            showSuccessMessage('Transação adicionada com sucesso!');
+        });
+
+        // Edit form
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('editId').value;
+            const transaction = transactions.find(t => t.id === id);
+            
+            if (transaction) {
+                transaction.description = document.getElementById('editDescription').value;
+                transaction.amount = parseFloat(document.getElementById('editAmount').value);
+                transaction.category = document.getElementById('editCategory').value;
+                transaction.date = document.getElementById('editDate').value;
+                transaction.priority = document.getElementById('editPriority').value;
+                transaction.updatedAt = new Date().toISOString();
+                
+                await saveTransactionToFirebase(transaction);
+                closeEditModal();
+                showSuccessMessage('Transação atualizada com sucesso!');
+            }
+        });
+
+        // Success message helper
+        function showSuccessMessage(message) {
+            const successMsg = document.createElement('div');
+            successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg z-50 fade-in';
+            successMsg.innerHTML = `<i class="fas fa-check mr-2"></i>${message}`;
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        }
+
+        // Render reminders
+        function renderReminders() {
+            const today = new Date();
+            const oneWeekFromNow = new Date();
+            oneWeekFromNow.setDate(today.getDate() + 7);
+            
+            const todayStr = today.toISOString().split('T')[0];
+            const oneWeekStr = oneWeekFromNow.toISOString().split('T')[0];
+            
+            // Due today
+            const dueToday = transactions.filter(t => 
+                !t.completed && t.date === todayStr
+            );
+            
+            // Due within a week
+            const dueThisWeek = transactions.filter(t => 
+                !t.completed && t.date > todayStr && t.date <= oneWeekStr
+            );
+            
+            const remindersContainer = document.getElementById('reminders');
+            
+            if (dueToday.length === 0 && dueThisWeek.length === 0) {
+                remindersContainer.innerHTML = '';
+                return;
+            }
+            
+            let remindersHTML = '';
+            
+            if (dueToday.length > 0) {
+                remindersHTML += `
+                    <div class="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 p-6 mb-6 rounded-r-2xl shadow-lg">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-exclamation-triangle text-red-600 mr-3 text-xl"></i>
+                            <h4 class="font-bold text-red-800 text-lg">🚨 Contas Vencendo Hoje</h4>
+                        </div>
+                        <div class="space-y-3">
+                            ${dueToday.map(t => `
+                                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full ${getPriorityColor(t.priority)} mr-3 shadow-sm"></span>
+                                        <span class="font-semibold text-gray-800">${t.description}</span>
+                                        <span class="text-sm text-gray-600 ml-3 bg-gray-100 px-2 py-1 rounded-full">${formatCurrency(t.amount)}</span>
+                                    </div>
+                                    <button onclick="toggleComplete(${t.id})" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (dueThisWeek.length > 0) {
+                remindersHTML += `
+                    <div class="bg-gradient-to-r from-yellow-50 to-yellow-100 border-l-4 border-yellow-500 p-6 mb-6 rounded-r-2xl shadow-lg">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-clock text-yellow-600 mr-3 text-xl"></i>
+                            <h4 class="font-bold text-yellow-800 text-lg">⏰ Próximas Contas (7 dias)</h4>
+                        </div>
+                        <div class="space-y-3">
+                            ${dueThisWeek.map(t => `
+                                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full ${getPriorityColor(t.priority)} mr-3 shadow-sm"></span>
+                                        <span class="font-semibold text-gray-800">${t.description}</span>
+                                        <span class="text-sm text-gray-600 ml-3 bg-gray-100 px-2 py-1 rounded-full">${formatCurrency(t.amount)} - ${formatDate(t.date)}</span>
+                                    </div>
+                                    <button onclick="toggleComplete(${t.id})" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            remindersContainer.innerHTML = remindersHTML;
+        }
+
+        // Update dashboard
+        function updateDashboard() {
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const balance = totalIncome - totalExpenses;
+            const pendingCount = transactions.filter(t => !t.completed).length;
+
+            document.getElementById('currentBalance').textContent = formatCurrency(balance);
+            
+            // Update dashboard cards if they exist
+            const totalIncome2 = document.getElementById('totalIncome2');
+            const totalExpenses2 = document.getElementById('totalExpenses2');
+            const pendingCount2 = document.getElementById('pendingCount2');
+            
+            if (totalIncome2) totalIncome2.textContent = formatCurrency(totalIncome);
+            if (totalExpenses2) totalExpenses2.textContent = formatCurrency(totalExpenses);
+            if (pendingCount2) pendingCount2.textContent = pendingCount;
+
+            // Update balance color
+            const balanceElement = document.getElementById('currentBalance');
+            balanceElement.className = balance >= 0 ? 'text-3xl font-bold text-white' : 'text-3xl font-bold text-red-300';
+        }
+
+        // Priority helper functions
+        function getPriorityColor(priority) {
+            switch(priority) {
+                case 'alta': return 'bg-red-500';
+                case 'media': return 'bg-yellow-500';
+                case 'baixa': return 'bg-green-500';
+                default: return 'bg-gray-500';
+            }
+        }
+
+        function getPriorityName(priority) {
+            switch(priority) {
+                case 'alta': return 'Alta';
+                case 'media': return 'Média';
+                case 'baixa': return 'Baixa';
+                default: return 'Baixa';
+            }
+        }
+
+        // Render transactions
+        function renderTransactions() {
+            const container = document.getElementById('transactionsList');
+            const filteredTransactions = getFilteredTransactions();
+            
+            if (filteredTransactions.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-500 text-lg">Nenhuma transação encontrada 📭</div>';
+                return;
+            }
+
+            container.innerHTML = filteredTransactions.map(transaction => `
+                <div class="p-6 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 fade-in transform hover:scale-102 transition-all duration-300 border-l-4 ${transaction.type === 'income' ? 'border-green-500' : 'border-red-500'} ${transaction.completed ? 'completed-transaction' : ''}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-14 h-14 rounded-full flex items-center justify-center ${transaction.type === 'income' ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-red-400 to-red-600'} shadow-lg ${transaction.completed ? 'opacity-60' : ''}">
+                                    <i class="fas ${transaction.type === 'income' ? 'fa-arrow-up' : 'fa-arrow-down'} text-white text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center">
+                                    <h4 class="font-bold text-gray-800 text-xl ${transaction.completed ? 'line-through' : ''}">${transaction.description}</h4>
+                                    <span class="w-3 h-3 rounded-full ${getPriorityColor(transaction.priority)} ml-3 shadow-sm"></span>
+                                    ${transaction.completed ? '<i class="fas fa-check-circle text-green-500 ml-2 text-lg"></i>' : ''}
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    <span class="bg-gray-100 px-3 py-1 rounded-full text-xs font-medium mr-2">${getCategoryName(transaction.category)}</span>
+                                    📅 ${formatDate(transaction.date)} • 
+                                    <span class="font-medium">${getPriorityName(transaction.priority)}</span>
+                                    ${transaction.completed ? ' • ✅ Concluída' : ' • ⏳ Pendente'}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-6">
+                            <span class="font-bold text-2xl ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'} ${transaction.completed ? 'line-through opacity-60' : ''}">
+                                ${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}
+                            </span>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="toggleComplete(${transaction.id})" class="p-3 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300 transform hover:scale-110">
+                                    <i class="fas fa-check text-lg"></i>
+                                </button>
+                                <button onclick="editTransaction(${transaction.id})" class="p-3 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300 transform hover:scale-110">
+                                    <i class="fas fa-edit text-lg"></i>
+                                </button>
+                                <button onclick="deleteTransaction(${transaction.id})" class="p-3 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300 transform hover:scale-110">
+                                    <i class="fas fa-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter transactions
+        function getFilteredTransactions() {
+            let filtered = [...transactions];
+            
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filterType = document.getElementById('filterType').value;
+            const filterCategory = document.getElementById('filterCategory').value;
+            const filterMonth = document.getElementById('filterMonth').value;
+
+            if (searchTerm) {
+                filtered = filtered.filter(t => 
+                    t.description.toLowerCase().includes(searchTerm) ||
+                    getCategoryName(t.category).toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (filterType !== 'all') {
+                if (filterType === 'pending') {
+                    filtered = filtered.filter(t => !t.completed);
+                } else if (filterType === 'completed') {
+                    filtered = filtered.filter(t => t.completed);
+                } else {
+                    filtered = filtered.filter(t => t.type === filterType);
+                }
+            }
+
+            if (filterCategory !== 'all') {
+                filtered = filtered.filter(t => t.category === filterCategory);
+            }
+
+            if (filterMonth) {
+                filtered = filtered.filter(t => t.date.startsWith(filterMonth));
+            }
+
+            return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        // Apply filters
+        function applyFilters() {
+            renderTransactions();
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('filterMonth').addEventListener('change', applyFilters);
+
+        // Transaction actions
+        async function toggleComplete(id) {
+            const transaction = transactions.find(t => t.id === id);
+            if (transaction) {
+                transaction.completed = !transaction.completed;
+                transaction.updatedAt = new Date().toISOString();
+                
+                // Auto-switch to completed filter when completing a transaction
+                if (transaction.completed) {
+                    document.getElementById('filterType').value = 'completed';
+                }
+                
+                await saveTransactionToFirebase(transaction);
+                showSuccessMessage(transaction.completed ? 'Transação concluída!' : 'Transação reaberta!');
+            }
+        }
+
+        function editTransaction(id) {
+            const transaction = transactions.find(t => t.id === id);
+            if (transaction) {
+                document.getElementById('editId').value = transaction.id;
+                document.getElementById('editDescription').value = transaction.description;
+                document.getElementById('editAmount').value = transaction.amount;
+                document.getElementById('editCategory').value = transaction.category;
+                document.getElementById('editDate').value = transaction.date;
+                document.getElementById('editPriority').value = transaction.priority || 'baixa';
+                document.getElementById('editModal').classList.remove('hidden');
+                document.getElementById('editModal').classList.add('flex');
+            }
+        }
+
+        async function deleteTransaction(id) {
+            if (confirm('🗑️ Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.')) {
+                await deleteTransactionFromFirebase(id);
+                showSuccessMessage('Transação excluída com sucesso!');
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModal').classList.remove('flex');
+        }
+
+        // Calendar functionality
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            document.getElementById('currentMonth').textContent = 
+                new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+
+            // Days of week header
+            const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            daysOfWeek.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'p-4 text-center font-bold text-gray-700 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg shadow-sm';
+                dayHeader.textContent = day;
+                calendarGrid.appendChild(dayHeader);
+            });
+
+            // Calendar days
+            for (let i = 0; i < 42; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                
+                const dayElement = document.createElement('div');
+                dayElement.className = `calendar-day border-2 border-white/50 p-3 rounded-lg cursor-pointer transform hover:scale-105 transition-all duration-300 hover:shadow-lg ${
+                    date.getMonth() !== month ? 'bg-gray-200/50 text-gray-400' : 'bg-white/80 backdrop-blur-sm hover:bg-white'
+                }`;
+                
+                // Add click event to show day transactions
+                dayElement.onclick = () => showDayTransactions(date);
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'font-bold text-center mb-2 text-lg';
+                dayNumber.textContent = date.getDate();
+                dayElement.appendChild(dayNumber);
+
+                // Add transaction dots and summary
+                const dateStr = date.toISOString().split('T')[0];
+                const dayTransactions = transactions.filter(t => t.date === dateStr);
+                
+                if (dayTransactions.length > 0) {
+                    const dotsContainer = document.createElement('div');
+                    dotsContainer.className = 'flex justify-center space-x-1 mb-2';
+                    
+                    dayTransactions.slice(0, 3).forEach((transaction) => {
+                        const dot = document.createElement('div');
+                        dot.className = `w-2 h-2 rounded-full ${transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'} shadow-sm`;
+                        dotsContainer.appendChild(dot);
+                    });
+                    
+                    if (dayTransactions.length > 3) {
+                        const moreDot = document.createElement('div');
+                        moreDot.className = 'w-2 h-2 rounded-full bg-gray-400 shadow-sm';
+                        dotsContainer.appendChild(moreDot);
+                    }
+                    
+                    dayElement.appendChild(dotsContainer);
+                    
+                    // Add transaction count
+                    const countElement = document.createElement('div');
+                    countElement.className = 'text-xs text-center text-gray-600 font-medium';
+                    countElement.textContent = `${dayTransactions.length} transação${dayTransactions.length > 1 ? 'ões' : ''}`;
+                    dayElement.appendChild(countElement);
+                }
+
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        // Show day transactions modal
+        function showDayTransactions(date) {
+            const dateStr = date.toISOString().split('T')[0];
+            const dayTransactions = transactions.filter(t => t.date === dateStr);
+            
+            if (dayTransactions.length === 0) {
+                // Show empty state
+                document.getElementById('dayModalTitle').textContent = 
+                    `📅 ${date.toLocaleDateString('pt-BR')}`;
+                
+                document.getElementById('dayTransactions').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-calendar-times text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg">Nenhuma transação neste dia</p>
+                    </div>
+                `;
+                
+                document.getElementById('dayModal').classList.remove('hidden');
+                document.getElementById('dayModal').classList.add('flex');
+                return;
+            }
+            
+            document.getElementById('dayModalTitle').textContent = 
+                `📅 Transações de ${date.toLocaleDateString('pt-BR')} (${dayTransactions.length})`;
+            
+            const container = document.getElementById('dayTransactions');
+            container.innerHTML = dayTransactions.map(transaction => `
+                <div class="flex items-center justify-between p-6 bg-gradient-to-r ${
+                    transaction.type === 'income' ? 'from-green-50 to-green-100 border-green-200' : 'from-red-50 to-red-100 border-red-200'
+                } rounded-2xl border-2 shadow-sm hover:shadow-md transition-all duration-300 ${transaction.completed ? 'opacity-70' : ''}">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center ${
+                            transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'
+                        } shadow-lg">
+                            <i class="fas ${
+                                transaction.type === 'income' ? 'fa-arrow-up' : 'fa-arrow-down'
+                            } text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-lg ${transaction.completed ? 'line-through' : ''}">${transaction.description}</h4>
+                            <p class="text-sm text-gray-600 mt-1">
+                                <span class="bg-white px-2 py-1 rounded-full text-xs font-medium mr-2">${getCategoryName(transaction.category)}</span>
+                                ${getPriorityName(transaction.priority)}
+                                ${transaction.completed ? ' • ✅ Concluída' : ' • ⏳ Pendente'}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-bold text-xl ${
+                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        } ${transaction.completed ? 'line-through' : ''}">
+                            ${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}
+                        </span>
+                        <div class="flex items-center justify-end mt-2 space-x-2">
+                            <span class="w-3 h-3 rounded-full ${getPriorityColor(transaction.priority)} shadow-sm"></span>
+                            <div class="flex space-x-1">
+                                <button onclick="toggleComplete(${transaction.id}); showDayTransactions(new Date('${transaction.date}T00:00:00'))" class="p-2 rounded-full hover:bg-green-100 ${transaction.completed ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600'} transition-all duration-300">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button onclick="editTransaction(${transaction.id})" class="p-2 rounded-full hover:bg-blue-100 text-blue-600 transition-all duration-300">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteTransaction(${transaction.id}); closeDayModal()" class="p-2 rounded-full hover:bg-red-100 text-red-600 transition-all duration-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('dayModal').classList.remove('hidden');
+            document.getElementById('dayModal').classList.add('flex');
+        }
+
+        function closeDayModal() {
+            document.getElementById('dayModal').classList.add('hidden');
+            document.getElementById('dayModal').classList.remove('flex');
+        }
+
+        // Charts
+        function initCharts() {
+            const ctx1 = document.getElementById('categoryChart').getContext('2d');
+            const ctx2 = document.getElementById('monthlyChart').getContext('2d');
+
+            categoryChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#ef4444', '#f97316', '#eab308', '#22c55e',
+                            '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            monthlyChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Receitas',
+                        data: [],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Despesas',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Category chart - only include completed transactions
+            const expensesByCategory = {};
+            transactions.filter(t => t.type === 'expense' && t.completed).forEach(t => {
+                expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
+            });
+
+            categoryChart.data.labels = Object.keys(expensesByCategory).map(getCategoryName);
+            categoryChart.data.datasets[0].data = Object.values(expensesByCategory);
+            categoryChart.update();
+
+            // Monthly chart - only include completed transactions
+            const monthlyData = {};
+            transactions.filter(t => t.completed).forEach(t => {
+                const month = t.date.substring(0, 7);
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { income: 0, expense: 0 };
+                }
+                monthlyData[month][t.type] += t.amount;
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort();
+            monthlyChart.data.labels = sortedMonths.map(month => {
+                const [year, monthNum] = month.split('-');
+                return new Date(year, monthNum - 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+            });
+            monthlyChart.data.datasets[0].data = sortedMonths.map(month => monthlyData[month].income);
+            monthlyChart.data.datasets[1].data = sortedMonths.map(month => monthlyData[month].expense);
+            monthlyChart.update();
+        }
+
+        // Utility functions
         function formatCurrency(amount) {
             return new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
@@ -834,1454 +1293,25 @@
             }).format(amount);
         }
 
-        function formatDate(dateString) {
-            return new Date(dateString + 'T12:00:00').toLocaleDateString('pt-BR');
+        function formatDate(dateStr) {
+            return new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR');
         }
 
-        function getMonthYear(dateString) {
-            const date = new Date(dateString + 'T12:00:00');
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        function getMonthYearDisplay(dateString) {
-            const date = new Date(dateString + 'T12:00:00');
-            const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            return `${months[date.getMonth()]} ${date.getFullYear()}`;
-        }
-
-        function showTab(tabName) {
-            // Esconder todas as abas
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.add('hidden');
-            });
-            
-            // Mostrar aba selecionada
-            document.getElementById(tabName + 'Tab').classList.remove('hidden');
-            
-            // Atualizar botões de navegação
-            document.querySelectorAll('.nav-tab').forEach(btn => {
-                btn.classList.remove('active');
-                btn.classList.add('text-blue-100', 'hover:text-white');
-                btn.classList.remove('text-white');
-            });
-            
-            event.target.classList.add('active');
-            event.target.classList.remove('text-blue-100', 'hover:text-white');
-            event.target.classList.add('text-white');
-            
-            // Inicializar conteúdo específico da aba
-            if (tabName === 'analytics') {
-                updateCharts();
-                updateMonthlyRanking();
-            } else if (tabName === 'calendar') {
-                renderCalendar();
-            }
-        }
-
-        function populateMonthYearFilters() {
-            // Obter todos os anos e meses únicos das transações
-            const allYears = [...new Set(window.transactions.map(t => new Date(t.dueDate + 'T12:00:00').getFullYear()))].sort().reverse();
-            const allMonthYears = [...new Set(window.transactions.map(t => getMonthYear(t.dueDate)))].sort().reverse();
-            
-            const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            
-            const dashboardFilter = document.getElementById('monthYearFilter');
-            const analyticsMonthFilter = document.getElementById('analyticsMonthFilter');
-            const analyticsYearFilter = document.getElementById('analyticsYearFilter');
-            
-            // Limpar filtros
-            dashboardFilter.innerHTML = '<option value="all">Todos os meses</option>';
-            analyticsMonthFilter.innerHTML = '<option value="all">Todos os meses</option>';
-            analyticsYearFilter.innerHTML = '<option value="all">Todos os anos</option>';
-            
-            // Popular filtro do dashboard com todos os meses/anos das transações
-            allMonthYears.forEach(monthYear => {
-                const display = getMonthYearDisplay(monthYear + '-01');
-                dashboardFilter.innerHTML += `<option value="${monthYear}">${display}</option>`;
-            });
-            
-            // Popular filtro de anos com todos os anos das transações
-            allYears.forEach(year => {
-                analyticsYearFilter.innerHTML += `<option value="${year}">${year}</option>`;
-            });
-            
-            // Popular filtro de meses com todos os 12 meses
-            months.forEach((month, index) => {
-                analyticsMonthFilter.innerHTML += `<option value="${index + 1}">${month}</option>`;
-            });
-        }
-
-        function openModal() {
-            document.getElementById('modal').classList.remove('hidden');
-            document.getElementById('description').focus();
-        }
-
-        function closeModal() {
-            document.getElementById('modal').classList.add('hidden');
-            document.getElementById('transactionForm').reset();
-            document.getElementById('dueDate').valueAsDate = new Date();
-        }
-
-        function addTransaction(e) {
-            e.preventDefault();
-            
-            const transaction = {
-                id: Date.now(),
-                type: document.getElementById('type').value,
-                description: document.getElementById('description').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                dueDate: document.getElementById('dueDate').value,
-                category: document.getElementById('category').value,
-                paid: false,
-                createdAt: new Date().toISOString()
+        function getCategoryName(category) {
+            const categories = {
+                'alimentacao': 'Alimentação',
+                'transporte': 'Transporte',
+                'moradia': 'Moradia',
+                'saude': 'Saúde',
+                'educacao': 'Educação',
+                'lazer': 'Lazer',
+                'salario': 'Salário',
+                'freelance': 'Freelance',
+                'investimentos': 'Investimentos',
+                'outros': 'Outros'
             };
-
-            transactions.unshift(transaction);
-            saveTransactions();
-            populateMonthYearFilters();
-            updateDashboard();
-            renderTransactions();
-            renderDailyReminders();
-            closeModal();
-
-            showSuccessMessage('Transação adicionada com sucesso!');
+            return categories[category] || category;
         }
-
-        function togglePaid(id) {
-            const transaction = transactions.find(t => t.id === id);
-            if (transaction) {
-                transaction.paid = !transaction.paid;
-                saveTransactions();
-                updateDashboard();
-                renderTransactions();
-                renderDailyReminders();
-                
-                const element = document.querySelector(`[data-id="${id}"]`);
-                if (element) {
-                    element.classList.add('pulse-success');
-                    setTimeout(() => element.classList.remove('pulse-success'), 600);
-                }
-            }
-        }
-
-        function deleteTransaction(id) {
-            if (confirm('Tem certeza que deseja excluir esta transação?')) {
-                transactions = transactions.filter(t => t.id !== id);
-                saveTransactions();
-                populateMonthYearFilters();
-                updateDashboard();
-                renderTransactions();
-                renderDailyReminders();
-                showSuccessMessage('Transação excluída!');
-            }
-        }
-
-        function getFilteredTransactions() {
-            let filtered = window.transactions;
-            
-            // Filtro por mês/ano
-            if (selectedMonthYear !== 'all') {
-                filtered = filtered.filter(t => getMonthYear(t.dueDate) === selectedMonthYear);
-            }
-            
-            // Filtro por tipo
-            if (currentFilter === 'pending') {
-                filtered = filtered.filter(t => !t.paid);
-            } else if (currentFilter === 'paid') {
-                filtered = filtered.filter(t => t.paid);
-            } else if (currentFilter === 'income') {
-                filtered = filtered.filter(t => t.type === 'income');
-            } else if (currentFilter === 'expense') {
-                filtered = filtered.filter(t => t.type === 'expense');
-            }
-            
-            return filtered;
-        }
-
-        function updateDashboard() {
-            const filteredTransactions = getFilteredTransactions();
-            
-            const income = filteredTransactions
-                .filter(t => t.type === 'income' && t.paid)
-                .reduce((sum, t) => sum + t.amount, 0);
-            
-            const expenses = filteredTransactions
-                .filter(t => t.type === 'expense' && t.paid)
-                .reduce((sum, t) => sum + t.amount, 0);
-            
-            const balance = income - expenses;
-            
-            const totalTransactions = filteredTransactions.filter(t => t.type === 'expense').length;
-            const paidTransactions = filteredTransactions.filter(t => t.type === 'expense' && t.paid).length;
-            const progressPercentage = totalTransactions > 0 ? (paidTransactions / totalTransactions) * 100 : 0;
-
-            document.getElementById('totalIncome').textContent = formatCurrency(income);
-            document.getElementById('totalExpenses').textContent = formatCurrency(expenses);
-            document.getElementById('totalBalance').textContent = formatCurrency(balance);
-            document.getElementById('paidCount').textContent = paidTransactions;
-            document.getElementById('totalCount').textContent = totalTransactions;
-            document.getElementById('progressBar').style.width = progressPercentage + '%';
-
-            const balanceElement = document.getElementById('totalBalance');
-            balanceElement.className = balance >= 0 ? 'text-2xl font-bold text-green-400' : 'text-2xl font-bold text-red-400';
-        }
-
-        function renderTransactions() {
-            const container = document.getElementById('transactionsList');
-            const emptyState = document.getElementById('emptyState');
-            
-            const filteredTransactions = getFilteredTransactions();
-
-            if (filteredTransactions.length === 0) {
-                container.innerHTML = '';
-                emptyState.classList.remove('hidden');
-                return;
-            }
-
-            emptyState.classList.add('hidden');
-            
-            container.innerHTML = filteredTransactions.map(transaction => {
-                const isOverdue = new Date(transaction.dueDate) < new Date() && !transaction.paid;
-                const typeIcon = transaction.type === 'income' ? 'fa-arrow-up text-green-600' : 'fa-arrow-down text-red-600';
-                const typeColor = transaction.type === 'income' ? 'text-green-600' : 'text-red-600';
-                
-                return `
-                    <div class="expense-item ${transaction.paid ? 'paid' : ''} bg-gray-50 rounded-lg p-4 flex items-center justify-between fade-in" data-id="${transaction.id}">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-12 h-12 rounded-full ${transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
-                                <i class="fas ${typeIcon}"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-800 expense-text">${transaction.description}</h3>
-                                <div class="flex items-center space-x-2 text-sm text-gray-500">
-                                    <span>${transaction.category}</span>
-                                    <span>•</span>
-                                    <span>Vence: ${formatDate(transaction.dueDate)}</span>
-                                    ${isOverdue ? '<span class="text-red-500 font-medium">• ATRASADO</span>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <span class="font-bold ${typeColor} expense-text">${formatCurrency(transaction.amount)}</span>
-                            <button onclick="togglePaid(${transaction.id})" class="w-8 h-8 rounded-full border-2 ${transaction.paid ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-500'} flex items-center justify-center transition-all">
-                                ${transaction.paid ? '<i class="fas fa-check text-white text-sm"></i>' : ''}
-                            </button>
-                            <button onclick="editTransaction(${transaction.id})" class="text-gray-400 hover:text-blue-500 transition-colors mr-2">
-                                <i class="fas fa-edit text-sm"></i>
-                            </button>
-                            <button onclick="deleteTransaction(${transaction.id})" class="text-gray-400 hover:text-red-500 transition-colors">
-                                <i class="fas fa-trash text-sm"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function setFilter(filter) {
-            currentFilter = filter;
-            
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-gray-200', 'text-gray-700');
-            });
-            
-            document.querySelector(`[data-filter="${filter}"]`).classList.remove('bg-gray-200', 'text-gray-700');
-            document.querySelector(`[data-filter="${filter}"]`).classList.add('bg-blue-600', 'text-white');
-            
-            updateDashboard();
-            renderTransactions();
-        }
-
-        function updateCharts() {
-            updateCategoryChart();
-            updateMonthlyChart();
-        }
-
-        function updateCategoryChart() {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            
-            if (categoryChart) {
-                categoryChart.destroy();
-            }
-            
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const analyticsYear = document.getElementById('analyticsYearFilter').value;
-            const analyticsMonth = document.getElementById('analyticsMonthFilter').value;
-            
-            let filteredTransactions = transactions.filter(t => t.type === 'expense' && t.paid);
-            
-            if (analyticsYear !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getFullYear() == analyticsYear);
-            }
-            
-            if (analyticsMonth !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getMonth() + 1 == analyticsMonth);
-            }
-            
-            if (searchTerm) {
-                filteredTransactions = filteredTransactions.filter(t => 
-                    t.description.toLowerCase().includes(searchTerm) || 
-                    t.category.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            const categoryData = {};
-            const categoryLabels = {
-                'alimentacao': '🍽️ Alimentação',
-                'transporte': '🚗 Transporte',
-                'moradia': '🏠 Moradia',
-                'saude': '🏥 Saúde',
-                'educacao': '📚 Educação',
-                'lazer': '🎮 Lazer',
-                'trabalho': '💼 Trabalho',
-                'salario': '💰 Salário',
-                'outros': '📋 Outros'
-            };
-            
-            filteredTransactions.forEach(t => {
-                categoryData[t.category] = (categoryData[t.category] || 0) + t.amount;
-            });
-            
-            const labels = Object.keys(categoryData).map(key => categoryLabels[key]);
-            const data = Object.values(categoryData);
-            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
-            
-            if (data.length === 0) {
-                // Mostrar gráfico vazio quando não há dados
-                categoryChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Nenhum dado'],
-                        datasets: [{
-                            data: [1],
-                            backgroundColor: ['#e5e7eb'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                enabled: false
-                            }
-                        }
-                    }
-                });
-                return;
-            }
-            
-            categoryChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: colors,
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = formatCurrency(context.parsed);
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                    return `${label}: ${value} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateMonthlyChart() {
-            const ctx = document.getElementById('monthlyChart').getContext('2d');
-            
-            if (monthlyChart) {
-                monthlyChart.destroy();
-            }
-            
-            const analyticsYear = document.getElementById('analyticsYearFilter').value;
-            const analyticsMonth = document.getElementById('analyticsMonthFilter').value;
-            
-            let filteredTransactions = transactions.filter(t => t.paid);
-            
-            // Aplicar filtros de ano e mês
-            if (analyticsYear !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getFullYear() == analyticsYear);
-            }
-            
-            if (analyticsMonth !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getMonth() + 1 == analyticsMonth);
-            }
-            
-            const monthlyData = {};
-            
-            filteredTransactions.forEach(t => {
-                const date = new Date(t.dueDate + 'T12:00:00');
-                const year = date.getFullYear();
-                const monthName = date.toLocaleDateString('pt-BR', { month: 'long' });
-                const monthCapitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                const label = `${year} - ${monthCapitalized}`;
-                
-                if (!monthlyData[label]) {
-                    monthlyData[label] = { income: 0, expense: 0 };
-                }
-                
-                if (t.type === 'income') {
-                    monthlyData[label].income += t.amount;
-                } else {
-                    monthlyData[label].expense += t.amount;
-                }
-            });
-            
-            // Ordenar por ano e mês
-            const sortedEntries = Object.entries(monthlyData).sort((a, b) => {
-                const [yearA, monthA] = a[0].split(' - ');
-                const [yearB, monthB] = b[0].split(' - ');
-                
-                if (yearA !== yearB) {
-                    return parseInt(yearA) - parseInt(yearB);
-                }
-                
-                const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-                               'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-                return months.indexOf(monthA.toLowerCase()) - months.indexOf(monthB.toLowerCase());
-            });
-            
-            const labels = sortedEntries.map(([label]) => label);
-            const incomeData = sortedEntries.map(([, data]) => data.income);
-            const expenseData = sortedEntries.map(([, data]) => data.expense);
-            
-            if (labels.length === 0) {
-                // Mostrar gráfico vazio quando não há dados
-                monthlyChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Nenhum dado'],
-                        datasets: [{
-                            data: [1],
-                            backgroundColor: ['#e5e7eb'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                enabled: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                display: false
-                            }
-                        }
-                    }
-                });
-                return;
-            }
-            
-            monthlyChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Receitas',
-                            data: incomeData,
-                            backgroundColor: '#22c55e',
-                            borderColor: '#16a34a',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Despesas',
-                            data: expenseData,
-                            backgroundColor: '#ef4444',
-                            borderColor: '#dc2626',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                padding: 20,
-                                usePointStyle: true
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.dataset.label || '';
-                                    const value = formatCurrency(context.parsed.y);
-                                    return `${label}: ${value}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatCurrency(value);
-                                }
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function getMonthIndex(monthName) {
-            const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            return months.indexOf(monthName);
-        }
-
-        function updateMonthlyRanking() {
-            const analyticsYear = document.getElementById('analyticsYearFilter').value;
-            const analyticsMonth = document.getElementById('analyticsMonthFilter').value;
-            
-            let filteredTransactions = transactions.filter(t => t.type === 'expense' && t.paid);
-            
-            // Aplicar filtros de ano e mês
-            if (analyticsYear !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getFullYear() == analyticsYear);
-            }
-            
-            if (analyticsMonth !== 'all') {
-                filteredTransactions = filteredTransactions.filter(t => new Date(t.dueDate + 'T12:00:00').getMonth() + 1 == analyticsMonth);
-            }
-            
-            const monthlyTotals = {};
-            
-            filteredTransactions.forEach(t => {
-                const monthYear = getMonthYearDisplay(t.dueDate);
-                monthlyTotals[monthYear] = (monthlyTotals[monthYear] || 0) + t.amount;
-            });
-            
-            const sortedMonths = Object.entries(monthlyTotals)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 10);
-            
-            const container = document.getElementById('monthlyRanking');
-            
-            if (sortedMonths.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhum dado disponível</p>';
-                return;
-            }
-            
-            container.innerHTML = sortedMonths.map(([month, total], index) => `
-                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full ${index < 3 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600'} flex items-center justify-center font-bold text-sm">
-                            ${index + 1}
-                        </div>
-                        <span class="font-medium text-gray-800">${month}</span>
-                    </div>
-                    <span class="font-bold text-red-600">${formatCurrency(total)}</span>
-                </div>
-            `).join('');
-        }
-
-        function renderCalendar() {
-            const calendar = document.getElementById('calendar');
-            const currentMonthElement = document.getElementById('currentMonth');
-            
-            const year = currentCalendarDate.getFullYear();
-            const month = currentCalendarDate.getMonth();
-            
-            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                               'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            
-            currentMonthElement.textContent = `${monthNames[month]} ${year}`;
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const startDate = new Date(firstDay);
-            startDate.setDate(startDate.getDate() - firstDay.getDay());
-            
-            const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-            
-            let calendarHTML = '';
-            
-            // Cabeçalho dos dias da semana
-            dayNames.forEach(day => {
-                calendarHTML += `<div class="p-2 text-center font-semibold text-gray-600 text-sm">${day}</div>`;
-            });
-            
-            // Dias do calendário
-            for (let i = 0; i < 42; i++) {
-                const currentDate = new Date(startDate);
-                currentDate.setDate(startDate.getDate() + i);
-                
-                const isCurrentMonth = currentDate.getMonth() === month;
-                const isToday = currentDate.toDateString() === new Date().toDateString();
-                const isSelected = selectedCalendarDate && currentDate.toDateString() === selectedCalendarDate.toDateString();
-                
-                const dateString = currentDate.toISOString().split('T')[0];
-                const dayTransactions = transactions.filter(t => t.dueDate === dateString);
-                const hasExpenses = dayTransactions.some(t => t.type === 'expense');
-                const hasIncome = dayTransactions.some(t => t.type === 'income');
-                
-                let classes = 'calendar-day p-3 text-center cursor-pointer rounded-lg relative';
-                if (!isCurrentMonth) classes += ' text-gray-300';
-                if (isToday) classes += ' bg-blue-100 text-blue-600 font-bold';
-                if (isSelected) classes += ' selected';
-                if (dayTransactions.length > 0) classes += ' has-transactions';
-                
-                let dots = '';
-                if (hasExpenses) dots += '<div class="transaction-dot dot-expense"></div>';
-                if (hasIncome) dots += '<div class="transaction-dot dot-income"></div>';
-                
-                calendarHTML += `
-                    <div class="${classes}" onclick="selectCalendarDate('${dateString}')">
-                        ${currentDate.getDate()}
-                        ${dots}
-                    </div>
-                `;
-            }
-            
-            calendar.innerHTML = calendarHTML;
-        }
-
-        function selectCalendarDate(dateString) {
-            selectedCalendarDate = new Date(dateString + 'T12:00:00');
-            renderCalendar();
-            renderDayTransactions(dateString);
-        }
-
-        function renderDayTransactions(dateString) {
-            const container = document.getElementById('dayTransactions');
-            const titleElement = document.getElementById('selectedDateTitle');
-            
-            const dayTransactions = transactions.filter(t => t.dueDate === dateString);
-            const formattedDate = new Date(dateString + 'T12:00:00').toLocaleDateString('pt-BR');
-            
-            titleElement.textContent = formattedDate;
-            
-            if (dayTransactions.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhuma transação neste dia</p>';
-                return;
-            }
-            
-            container.innerHTML = dayTransactions.map(transaction => {
-                const typeIcon = transaction.type === 'income' ? 'fa-arrow-up text-green-600' : 'fa-arrow-down text-red-600';
-                const typeColor = transaction.type === 'income' ? 'text-green-600' : 'text-red-600';
-                
-                return `
-                    <div class="bg-gray-50 rounded-lg p-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <i class="fas ${typeIcon}"></i>
-                                <div>
-                                    <p class="font-medium text-gray-800 text-sm">${transaction.description}</p>
-                                    <p class="text-xs text-gray-500">${transaction.category}</p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold ${typeColor} text-sm">${formatCurrency(transaction.amount)}</p>
-                                <p class="text-xs ${transaction.paid ? 'text-green-600' : 'text-red-600'}">${transaction.paid ? 'Pago' : 'Pendente'}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function previousMonth() {
-            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
-            renderCalendar();
-        }
-
-        function nextMonth() {
-            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
-            renderCalendar();
-        }
-
-        function renderDailyReminders() {
-            const container = document.getElementById('dailyReminders');
-            const today = new Date().toISOString().split('T')[0];
-            
-            // Contas vencendo hoje
-            const todayTransactions = transactions.filter(t => 
-                t.dueDate === today && !t.paid
-            );
-            
-            // Contas vencidas (até 7 dias atrás)
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            const overdueTransactions = transactions.filter(t => {
-                const dueDate = new Date(t.dueDate + 'T12:00:00');
-                return dueDate < new Date(today + 'T12:00:00') && 
-                       dueDate >= sevenDaysAgo && 
-                       !t.paid;
-            });
-            
-            // Contas vencendo nos próximos 3 dias
-            const threeDaysFromNow = new Date();
-            threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-            const upcomingTransactions = transactions.filter(t => {
-                const dueDate = new Date(t.dueDate + 'T12:00:00');
-                const todayDate = new Date(today + 'T12:00:00');
-                return dueDate > todayDate && 
-                       dueDate <= threeDaysFromNow && 
-                       !t.paid;
-            });
-            
-            if (todayTransactions.length === 0 && overdueTransactions.length === 0 && upcomingTransactions.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            
-            let remindersHTML = '<div class="space-y-4">';
-            
-            // Contas vencidas
-            if (overdueTransactions.length > 0) {
-                remindersHTML += `
-                    <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-4 slide-in">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
-                            <h3 class="text-lg font-semibold text-red-800">Contas Vencidas</h3>
-                        </div>
-                        <div class="space-y-2">
-                            ${overdueTransactions.map(t => `
-                                <div class="flex items-center justify-between bg-white rounded-lg p-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800">${t.description}</p>
-                                        <p class="text-sm text-gray-500">Venceu em ${formatDate(t.dueDate)} • ${formatCurrency(t.amount)}</p>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <button onclick="togglePaid(${t.id})" class="text-green-600 hover:text-green-700 text-sm">
-                                            <i class="fas fa-check"></i> Pagar
-                                        </button>
-                                        <button onclick="editTransaction(${t.id})" class="text-blue-600 hover:text-blue-700 text-sm">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Contas vencendo hoje
-            if (todayTransactions.length > 0) {
-                remindersHTML += `
-                    <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 slide-in">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-clock text-yellow-500 mr-2"></i>
-                            <h3 class="text-lg font-semibold text-yellow-800">Vencendo Hoje</h3>
-                        </div>
-                        <div class="space-y-2">
-                            ${todayTransactions.map(t => `
-                                <div class="flex items-center justify-between bg-white rounded-lg p-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800">${t.description}</p>
-                                        <p class="text-sm text-gray-500">${t.category} • ${formatCurrency(t.amount)}</p>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <button onclick="togglePaid(${t.id})" class="text-green-600 hover:text-green-700 text-sm">
-                                            <i class="fas fa-check"></i> Pagar
-                                        </button>
-                                        <button onclick="editTransaction(${t.id})" class="text-blue-600 hover:text-blue-700 text-sm">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Contas vencendo em breve
-            if (upcomingTransactions.length > 0) {
-                remindersHTML += `
-                    <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 slide-in">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-calendar-alt text-blue-500 mr-2"></i>
-                            <h3 class="text-lg font-semibold text-blue-800">Próximos Vencimentos</h3>
-                        </div>
-                        <div class="space-y-2">
-                            ${upcomingTransactions.map(t => `
-                                <div class="flex items-center justify-between bg-white rounded-lg p-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800">${t.description}</p>
-                                        <p class="text-sm text-gray-500">Vence em ${formatDate(t.dueDate)} • ${formatCurrency(t.amount)}</p>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <button onclick="togglePaid(${t.id})" class="text-green-600 hover:text-green-700 text-sm">
-                                            <i class="fas fa-check"></i> Pagar
-                                        </button>
-                                        <button onclick="editTransaction(${t.id})" class="text-blue-600 hover:text-blue-700 text-sm">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            remindersHTML += '</div>';
-            container.innerHTML = remindersHTML;
-        }
-
-        function editTransaction(id) {
-            console.log('Edit transaction chamado para ID:', id);
-            const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
-            if (!transaction) {
-                console.error('Transação não encontrada para editar, ID:', id);
-                return;
-            }
-            
-            editingTransactionId = transaction.firebaseId || transaction.id;
-            console.log('Editando transação:', transaction.description, 'Firebase ID:', editingTransactionId);
-            
-            // Preencher o formulário de edição
-            document.getElementById('editType').value = transaction.type;
-            document.getElementById('editDescription').value = transaction.description;
-            document.getElementById('editAmount').value = transaction.amount;
-            document.getElementById('editDueDate').value = transaction.dueDate;
-            document.getElementById('editCategory').value = transaction.category;
-            
-            // Mostrar modal de edição
-            document.getElementById('editModal').classList.remove('hidden');
-            document.getElementById('editDescription').focus();
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-            document.getElementById('editTransactionForm').reset();
-            editingTransactionId = null;
-        }
-
-        function updateTransaction(e) {
-            e.preventDefault();
-            
-            if (!editingTransactionId) return;
-            
-            const transactionIndex = transactions.findIndex(t => t.id === editingTransactionId);
-            if (transactionIndex === -1) return;
-            
-            // Atualizar a transação
-            transactions[transactionIndex] = {
-                ...transactions[transactionIndex],
-                type: document.getElementById('editType').value,
-                description: document.getElementById('editDescription').value,
-                amount: parseFloat(document.getElementById('editAmount').value),
-                dueDate: document.getElementById('editDueDate').value,
-                category: document.getElementById('editCategory').value,
-                updatedAt: new Date().toISOString()
-            };
-            
-            saveTransactions();
-            populateMonthYearFilters();
-            updateDashboard();
-            renderTransactions();
-            renderDailyReminders();
-            closeEditModal();
-            
-            showSuccessMessage('Transação atualizada com sucesso!');
-        }
-
-        function showSuccessMessage(message) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in';
-            toast.innerHTML = `<i class="fas fa-check mr-2"></i>${message}`;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }
-
-        // Event Listeners
-        document.getElementById('transactionForm').addEventListener('submit', addTransaction);
-        document.getElementById('editTransactionForm').addEventListener('submit', updateTransaction);
-
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => setFilter(btn.dataset.filter));
-        });
-
-        document.getElementById('monthYearFilter').addEventListener('change', (e) => {
-            selectedMonthYear = e.target.value;
-            updateDashboard();
-            renderTransactions();
-        });
-
-        document.getElementById('analyticsMonthFilter').addEventListener('change', () => {
-            updateCharts();
-            updateMonthlyRanking();
-        });
-
-        document.getElementById('analyticsYearFilter').addEventListener('change', () => {
-            updateCharts();
-            updateMonthlyRanking();
-        });
-
-        document.getElementById('searchInput').addEventListener('input', () => {
-            updateCharts();
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeModal();
-                closeEditModal();
-            }
-        });
-
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('modal')) closeModal();
-        });
-
-        document.getElementById('editModal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('editModal')) closeEditModal();
-        });
-
-        // Inicializar
-        populateMonthYearFilters();
-        updateDashboard();
-        renderTransactions();
-        renderDailyReminders();
-        renderCalendar();
     </script>
-    </div> <!-- Fechamento do appContainer -->
-
-    <script>
-        // Variáveis globais para Firebase
-        window.currentUser = null;
-        window.unsubscribeTransactions = null;
-
-        // Função para alternar visibilidade da senha
-        function togglePasswordVisibility(inputId, button) {
-            const input = document.getElementById(inputId);
-            const icon = button.querySelector('i');
-            
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        }
-
-        // Função para mostrar formulário de registro
-        function showRegisterForm() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('registerForm').classList.remove('hidden');
-        }
-
-        // Função para mostrar formulário de login
-        function showLoginForm() {
-            document.getElementById('registerForm').classList.add('hidden');
-            document.getElementById('loginForm').classList.remove('hidden');
-        }
-
-        // Função para mostrar mensagens de erro/sucesso
-        function showMessage(message, type = 'success') {
-            const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-            const icon = type === 'success' ? 'fa-check' : 'fa-exclamation-triangle';
-            
-            toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
-            toast.innerHTML = `<i class="fas ${icon} mr-2"></i>${message}`;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.remove();
-            }, 4000);
-        }
-
-        // Função para definir estado de loading nos botões
-        function setButtonLoading(buttonId, loading) {
-            const button = document.getElementById(buttonId);
-            if (loading) {
-                button.classList.add('btn-loading');
-                button.disabled = true;
-            } else {
-                button.classList.remove('btn-loading');
-                button.disabled = false;
-            }
-        }
-
-        // Login com Google
-        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
-            console.log('Tentando login com Google...');
-            setButtonLoading('googleLoginBtn', true);
-            
-            try {
-                const provider = new window.GoogleAuthProvider();
-                provider.addScope('email');
-                provider.addScope('profile');
-                
-                console.log('Iniciando popup do Google...');
-                const result = await window.signInWithPopup(window.auth, provider);
-                console.log('Login com Google bem-sucedido:', result.user.email);
-                showMessage('Login realizado com sucesso!');
-            } catch (error) {
-                console.error('Erro no login com Google:', error);
-                
-                let errorMessage = 'Erro ao fazer login com Google';
-                
-                if (error.code === 'auth/popup-closed-by-user') {
-                    errorMessage = 'Login cancelado pelo usuário';
-                } else if (error.code === 'auth/popup-blocked') {
-                    errorMessage = 'Popup bloqueado pelo navegador. Permita popups para este site.';
-                } else if (error.code === 'auth/cancelled-popup-request') {
-                    errorMessage = 'Solicitação de popup cancelada';
-                } else if (error.code === 'auth/unauthorized-domain') {
-                    errorMessage = '❌ Domínio não autorizado! Adicione necleg.github.io aos domínios autorizados no Firebase Console → Authentication → Settings → Authorized domains';
-                } else {
-                    errorMessage = error.message;
-                }
-                
-                showMessage(errorMessage, 'error');
-            } finally {
-                setButtonLoading('googleLoginBtn', false);
-            }
-        });
-
-        // Login com email/senha
-        document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log('Tentando login com email...');
-            setButtonLoading('loginBtn', true);
-            
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            
-            if (!email || !password) {
-                showMessage('Por favor, preencha email e senha', 'error');
-                setButtonLoading('loginBtn', false);
-                return;
-            }
-            
-            try {
-                console.log('Fazendo login com email:', email);
-                const result = await window.signInWithEmailAndPassword(window.auth, email, password);
-                console.log('Login com email bem-sucedido:', result.user.email);
-                showMessage('Login realizado com sucesso!');
-            } catch (error) {
-                console.error('Erro no login:', error);
-                let errorMessage = 'Erro ao fazer login';
-                
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                        errorMessage = 'Usuário não encontrado';
-                        break;
-                    case 'auth/wrong-password':
-                        errorMessage = 'Senha incorreta';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage = 'Email inválido';
-                        break;
-                    case 'auth/invalid-credential':
-                        errorMessage = 'Credenciais inválidas';
-                        break;
-                    case 'auth/too-many-requests':
-                        errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
-                        break;
-                    default:
-                        errorMessage = error.message;
-                }
-                
-                showMessage(errorMessage, 'error');
-            } finally {
-                setButtonLoading('loginBtn', false);
-            }
-        });
-
-        // Registro com email/senha
-        document.getElementById('emailRegisterForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log('Tentando criar conta...');
-            setButtonLoading('registerBtn', true);
-            
-            const name = document.getElementById('registerName').value.trim();
-            const email = document.getElementById('registerEmail').value.trim();
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            // Validações
-            if (!name || !email || !password || !confirmPassword) {
-                showMessage('Por favor, preencha todos os campos', 'error');
-                setButtonLoading('registerBtn', false);
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                showMessage('As senhas não coincidem', 'error');
-                setButtonLoading('registerBtn', false);
-                return;
-            }
-            
-            if (password.length < 6) {
-                showMessage('A senha deve ter pelo menos 6 caracteres', 'error');
-                setButtonLoading('registerBtn', false);
-                return;
-            }
-            
-            try {
-                console.log('Criando conta para:', email);
-                const userCredential = await window.createUserWithEmailAndPassword(window.auth, email, password);
-                console.log('Conta criada, atualizando perfil...');
-                await window.updateProfile(userCredential.user, { displayName: name });
-                console.log('Conta criada com sucesso:', userCredential.user.email);
-                showMessage('Conta criada com sucesso!');
-            } catch (error) {
-                console.error('Erro no registro:', error);
-                let errorMessage = 'Erro ao criar conta';
-                
-                switch (error.code) {
-                    case 'auth/email-already-in-use':
-                        errorMessage = 'Este email já está em uso';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage = 'Email inválido';
-                        break;
-                    case 'auth/weak-password':
-                        errorMessage = 'Senha muito fraca';
-                        break;
-                    default:
-                        errorMessage = error.message;
-                }
-                
-                showMessage(errorMessage, 'error');
-            } finally {
-                setButtonLoading('registerBtn', false);
-            }
-        });
-
-        // Função de logout
-        async function logout() {
-            try {
-                if (window.unsubscribeTransactions) {
-                    window.unsubscribeTransactions();
-                }
-                await window.signOut(window.auth);
-                showMessage('Logout realizado com sucesso!');
-            } catch (error) {
-                console.error('Erro no logout:', error);
-                showMessage('Erro ao fazer logout', 'error');
-            }
-        }
-
-        // ===== HELPERS PADRONIZADOS PARA FIRESTORE =====
-        function getEventsCollectionRef(uid) {
-            return window.collection(window.db, 'users', uid, 'transactions');
-        }
-
-        function getEventDocRef(uid, eventId) {
-            return window.doc(window.db, 'users', uid, 'transactions', eventId);
-        }
-
-        // Função para carregar transações do Firebase
-        window.loadTransactionsFromFirebase = async function() {
-            if (!window.currentUser) {
-                console.log('Usuário não autenticado, não carregando transações');
-                return;
-            }
-            
-            try {
-                // Limpar listener anterior se existir
-                if (window.unsubscribeTransactions) {
-                    window.unsubscribeTransactions();
-                    window.unsubscribeTransactions = null;
-                }
-                
-                console.log('Carregando transações para usuário:', window.currentUser.uid);
-                
-                // Usar caminho padronizado: /users/{userId}/transactions/
-                const userTransactionsRef = getEventsCollectionRef(window.currentUser.uid);
-                const q = window.query(userTransactionsRef, window.orderBy('createdAt', 'desc'));
-                
-                // Listener em tempo real
-                window.unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
-                    console.log('Snapshot recebido, documentos:', snapshot.size);
-                    window.transactions = [];
-                    
-                    snapshot.forEach((doc) => {
-                        const data = doc.data();
-                        window.transactions.push({
-                            id: doc.id, // ID do Firebase
-                            firebaseId: doc.id, // Referência explícita
-                            type: data.type || 'expense',
-                            description: data.description || 'Sem descrição',
-                            amount: data.amount || 0,
-                            dueDate: data.dueDate || new Date().toISOString().split('T')[0],
-                            category: data.category || 'outros',
-                            paid: data.paid || false,
-                            createdAt: data.createdAt || new Date().toISOString()
-                        });
-                    });
-                    
-                    console.log('Transações carregadas:', window.transactions.length);
-                    
-                    populateMonthYearFilters();
-                    updateDashboard();
-                    renderTransactions();
-                    renderDailyReminders();
-                    renderCalendar();
-                }, (error) => {
-                    console.error('Erro no listener:', error);
-                    if (error.code === 'permission-denied') {
-                        showMessage('❌ Erro de permissão ao carregar transações!', 'error');
-                    } else {
-                        showMessage('Erro ao carregar dados: ' + error.message, 'error');
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Erro ao configurar listener:', error);
-                showMessage('Erro ao configurar sincronização de dados', 'error');
-            }
-        };
-
-        // Função para salvar transação no Firebase
-        async function saveTransactionToFirebase(transaction) {
-            if (!window.currentUser) {
-                console.error('Usuário não autenticado');
-                showMessage('Usuário não autenticado', 'error');
-                return;
-            }
-            
-            try {
-                console.log('Salvando transação para usuário:', window.currentUser.uid);
-                console.log('Dados da transação:', transaction);
-                
-                // Usar helper padronizado
-                const userTransactionsRef = getEventsCollectionRef(window.currentUser.uid);
-                const docRef = await window.addDoc(userTransactionsRef, {
-                    ...transaction,
-                    createdAt: new Date().toISOString()
-                });
-                console.log('✅ Transação salva com sucesso! ID:', docRef.id);
-                return docRef.id;
-            } catch (error) {
-                console.error('❌ Erro ao salvar transação:', error);
-                if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para salvar. Verifique se está logado!', 'error');
-                } else {
-                    showMessage('Erro ao salvar transação: ' + error.message, 'error');
-                }
-                throw error;
-            }
-        }
-
-        // Função para atualizar transação no Firebase
-        async function updateTransactionInFirebase(transactionId, updates) {
-            if (!window.currentUser) {
-                console.error('Usuário não autenticado');
-                showMessage('Usuário não autenticado', 'error');
-                return;
-            }
-            
-            try {
-                console.log('Atualizando transação:', transactionId, 'para usuário:', window.currentUser.uid);
-                
-                // Usar helper padronizado
-                const transactionRef = getEventDocRef(window.currentUser.uid, transactionId);
-                
-                // Verificar se o documento existe antes de atualizar
-                const docSnap = await window.getDoc(transactionRef);
-                
-                if (!docSnap.exists()) {
-                    console.warn('Documento não encontrado:', transactionId);
-                    showMessage('Transação não encontrada', 'error');
-                    return;
-                }
-                
-                await window.updateDoc(transactionRef, {
-                    ...updates,
-                    updatedAt: new Date().toISOString()
-                });
-                console.log('✅ Transação atualizada com sucesso');
-            } catch (error) {
-                console.error('❌ Erro ao atualizar transação:', error);
-                if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para atualizar. Verifique se está logado!', 'error');
-                } else if (error.code === 'not-found') {
-                    showMessage('Transação não encontrada', 'error');
-                } else {
-                    showMessage('Erro ao atualizar transação: ' + error.message, 'error');
-                }
-            }
-        }
-
-        // Função para deletar transação do Firebase
-        async function deleteTransactionFromFirebase(transactionId) {
-            if (!window.currentUser) {
-                console.error('Usuário não autenticado');
-                showMessage('Usuário não autenticado', 'error');
-                return;
-            }
-            
-            try {
-                console.log('Deletando transação:', transactionId, 'para usuário:', window.currentUser.uid);
-                
-                // Usar helper padronizado
-                const transactionRef = getEventDocRef(window.currentUser.uid, transactionId);
-                
-                await window.deleteDoc(transactionRef);
-                console.log('✅ Transação deletada com sucesso');
-            } catch (error) {
-                console.error('❌ Erro ao deletar transação:', error);
-                if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para deletar. Verifique se está logado!', 'error');
-                } else if (error.code === 'not-found') {
-                    showMessage('Transação não encontrada', 'error');
-                } else {
-                    showMessage('Erro ao deletar transação: ' + error.message, 'error');
-                }
-            }
-        }
-
-        // Atualizar as funções existentes para usar Firebase
-        const originalAddTransaction = addTransaction;
-        addTransaction = async function(e) {
-            e.preventDefault();
-            
-            const transaction = {
-                type: document.getElementById('type').value,
-                description: document.getElementById('description').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                dueDate: document.getElementById('dueDate').value,
-                category: document.getElementById('category').value,
-                paid: false,
-                createdAt: new Date().toISOString()
-            };
-
-            await saveTransactionToFirebase(transaction);
-            closeModal();
-            showSuccessMessage('Transação adicionada com sucesso!');
-        };
-
-        const originalTogglePaid = togglePaid;
-        togglePaid = async function(id) {
-            console.log('Toggle paid chamado para ID:', id);
-            const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
-            if (transaction) {
-                console.log('Transação encontrada:', transaction.description);
-                const updates = { paid: !transaction.paid };
-                const firebaseId = transaction.firebaseId || transaction.id;
-                await updateTransactionInFirebase(firebaseId, updates);
-                
-                const element = document.querySelector(`[data-id="${id}"]`);
-                if (element) {
-                    element.classList.add('pulse-success');
-                    setTimeout(() => element.classList.remove('pulse-success'), 600);
-                }
-            } else {
-                console.error('Transação não encontrada para ID:', id);
-            }
-        };
-
-        const originalDeleteTransaction = deleteTransaction;
-        deleteTransaction = async function(id) {
-            if (confirm('Tem certeza que deseja excluir esta transação?')) {
-                console.log('Delete chamado para ID:', id);
-                const transaction = window.transactions.find(t => t.id === id || t.firebaseId === id);
-                if (transaction) {
-                    console.log('Transação encontrada para deletar:', transaction.description);
-                    const firebaseId = transaction.firebaseId || transaction.id;
-                    await deleteTransactionFromFirebase(firebaseId);
-                    showSuccessMessage('Transação excluída!');
-                } else {
-                    console.error('Transação não encontrada para deletar, ID:', id);
-                    showMessage('Transação não encontrada', 'error');
-                }
-            }
-        };
-
-        const originalUpdateTransaction = updateTransaction;
-        updateTransaction = async function(e) {
-            e.preventDefault();
-            
-            if (!editingTransactionId) return;
-            
-            console.log('Update chamado para ID:', editingTransactionId);
-            const transaction = window.transactions.find(t => t.id === editingTransactionId || t.firebaseId === editingTransactionId);
-            if (!transaction) {
-                console.error('Transação não encontrada para editar, ID:', editingTransactionId);
-                showMessage('Transação não encontrada', 'error');
-                return;
-            }
-            
-            const updates = {
-                type: document.getElementById('editType').value,
-                description: document.getElementById('editDescription').value,
-                amount: parseFloat(document.getElementById('editAmount').value),
-                dueDate: document.getElementById('editDueDate').value,
-                category: document.getElementById('editCategory').value,
-                updatedAt: new Date().toISOString()
-            };
-            
-            const firebaseId = transaction.firebaseId || transaction.id;
-            await updateTransactionInFirebase(firebaseId, updates);
-            closeEditModal();
-            showSuccessMessage('Transação atualizada com sucesso!');
-        };
-
-        // Atualizar categoryLabels para incluir salário
-        const categoryLabels = {
-            'alimentacao': '🍽️ Alimentação',
-            'transporte': '🚗 Transporte',
-            'moradia': '🏠 Moradia',
-            'saude': '🏥 Saúde',
-            'educacao': '📚 Educação',
-            'lazer': '🎮 Lazer',
-            'trabalho': '💼 Trabalho',
-            'salario': '💰 Salário',
-            'outros': '📋 Outros'
-        };
-
-        // Listener de autenticação já está configurado no módulo Firebase acima
-
-        // Remover inicialização local (agora será feita após login)
-        // populateMonthYearFilters();
-        // updateDashboard();
-        // renderTransactions();
-        // renderDailyReminders();
-        // renderCalendar();
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8742171a91d09',t:'MTc1NDkyMjg2NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8e3ac12031433',t:'MTc1NDkyNzQzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
