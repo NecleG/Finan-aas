@@ -1942,8 +1942,7 @@
                 const transactionsRef = window.collection(window.db, 'transactions');
                 const q = window.query(
                     transactionsRef, 
-                    window.where('userId', '==', window.currentUser.uid),
-                    window.orderBy('createdAt', 'desc')
+                    window.where('userId', '==', window.currentUser.uid)
                 );
                 
                 // Listener em tempo real
@@ -1963,11 +1962,20 @@
                         });
                     });
                     
+                    // Ordenar por data de criação (mais recentes primeiro)
+                    window.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
                     populateMonthYearFilters();
                     updateDashboard();
                     renderTransactions();
                     renderDailyReminders();
                     renderCalendar();
+                }, (error) => {
+                    console.error('Erro no listener:', error);
+                    if (error.code === 'permission-denied') {
+                        showMessage('Erro de permissão. Faça login novamente.', 'error');
+                        logout();
+                    }
                 });
                 
             } catch (error) {
@@ -1997,10 +2005,12 @@
             if (!window.currentUser) return;
             
             try {
-                const transactionRef = window.doc(window.db, 'transactions', transactionId);
+                // Garantir que transactionId é uma string
+                const docId = String(transactionId);
+                const transactionRef = window.doc(window.db, 'transactions', docId);
                 await window.updateDoc(transactionRef, {
                     ...updates,
-                    userId: window.currentUser.uid
+                    updatedAt: new Date().toISOString()
                 });
             } catch (error) {
                 console.error('Erro ao atualizar transação:', error);
@@ -2013,7 +2023,9 @@
             if (!window.currentUser) return;
             
             try {
-                const transactionRef = window.doc(window.db, 'transactions', transactionId);
+                // Garantir que transactionId é uma string
+                const docId = String(transactionId);
+                const transactionRef = window.doc(window.db, 'transactions', docId);
                 await window.deleteDoc(transactionRef);
             } catch (error) {
                 console.error('Erro ao deletar transação:', error);
@@ -2106,5 +2118,5 @@
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d81c4e95ab5226',t:'MTc1NDkxOTI2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d82406d3891b2e',t:'MTc1NDkxOTU4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
