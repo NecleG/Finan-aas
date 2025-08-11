@@ -299,9 +299,15 @@
                             <option value="alta" class="text-gray-800">🔴 Alta</option>
                         </select>
                     </div>
+                    <div class="space-y-2">
+                        <label class="flex items-center space-x-3 text-sm font-semibold text-white cursor-pointer">
+                            <input type="checkbox" id="hasInstallments" class="w-4 h-4 text-yellow-400 bg-white/20 border-white/30 rounded focus:ring-yellow-300 focus:ring-2">
+                            <span>💳 Parcela?</span>
+                        </label>
+                    </div>
                     <div class="space-y-2" id="installmentsField" style="display: none;">
-                        <label class="block text-sm font-semibold text-white">Parcelas (apenas para despesas)</label>
-                        <input type="text" id="installments" placeholder="Ex: 1/6 ou deixe vazio" class="w-full px-3 py-2 sm:px-4 sm:py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300 text-sm sm:text-base">
+                        <label class="block text-sm font-semibold text-white">Quantas parcelas?</label>
+                        <input type="text" id="installments" placeholder="Ex: 1/6 para 6 parcelas" class="w-full px-3 py-2 sm:px-4 sm:py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-transparent transition-all duration-300 text-sm sm:text-base">
                         <p class="text-xs text-white/60">Digite no formato 1/6 para criar 6 parcelas mensais</p>
                     </div>
                     <div class="sm:col-span-2 lg:col-span-3 flex justify-center mt-4">
@@ -606,10 +612,10 @@
             
             initCharts();
             
-            // Show/hide installments field based on transaction type
-            document.getElementById('type').addEventListener('change', function() {
+            // Show/hide installments field based on checkbox
+            document.getElementById('hasInstallments').addEventListener('change', function() {
                 const installmentsField = document.getElementById('installmentsField');
-                if (this.value === 'expense') {
+                if (this.checked) {
                     installmentsField.style.display = 'block';
                 } else {
                     installmentsField.style.display = 'none';
@@ -823,11 +829,12 @@
         document.getElementById('transactionForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            const hasInstallments = document.getElementById('hasInstallments').checked;
             const installmentsValue = document.getElementById('installments').value.trim();
             const type = document.getElementById('type').value;
             
-            // Check if it's an expense with installments
-            if (type === 'expense' && installmentsValue && installmentsValue.includes('/')) {
+            // Check if installments checkbox is checked and has valid format
+            if (hasInstallments && installmentsValue && installmentsValue.includes('/')) {
                 const [currentInstallment, totalInstallments] = installmentsValue.split('/').map(n => parseInt(n));
                 
                 if (currentInstallment > 0 && totalInstallments > 0 && currentInstallment <= totalInstallments) {
@@ -885,6 +892,7 @@
             this.reset();
             document.getElementById('date').valueAsDate = new Date();
             document.getElementById('installmentsField').style.display = 'none';
+            document.getElementById('hasInstallments').checked = false;
         });
 
         // Edit form
@@ -1180,6 +1188,7 @@
                                     <span class="font-medium">${getPriorityName(transaction.priority)}</span>
                                     ${transaction.completed ? ' • ✅ Concluída' : ' • ⏳ Pendente'}
                                 </p>
+                                ${transaction.observations ? `<p class="text-xs text-gray-500 mt-1 italic">💬 ${transaction.observations}</p>` : ''}
                             </div>
                         </div>
                         <div class="flex items-center space-x-6">
@@ -1442,6 +1451,7 @@
                                 ${getPriorityName(transaction.priority)}
                                 ${transaction.completed ? ' • ✅ Concluída' : ' • ⏳ Pendente'}
                             </p>
+                            ${transaction.observations ? `<p class="text-xs text-gray-500 mt-1 italic">💬 ${transaction.observations}</p>` : ''}
                         </div>
                     </div>
                     <div class="text-right">
@@ -1629,5 +1639,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9783e178c9416',t:'MTc1NDkzMzUxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9830b34482c08',t:'MTc1NDkzMzk2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
