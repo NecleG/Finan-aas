@@ -55,7 +55,6 @@
     
     <style>
         .calendar-day {
-            min-height: 80px;
             position: relative;
         }
         .transaction-dot {
@@ -79,8 +78,30 @@
             transition: opacity 0.3s ease-in-out;
         }
         
-        .hover\:scale-102:hover {
-            transform: scale(1.02);
+        /* Disable heavy effects on mobile */
+        @media (max-width: 640px) {
+            .hover\:scale-105:hover,
+            .hover\:scale-102:hover,
+            .transform,
+            .hover-lift {
+                transform: none !important;
+            }
+            
+            .hover\:shadow-lg:hover,
+            .hover\:shadow-xl:hover,
+            .hover\:shadow-md:hover {
+                box-shadow: none !important;
+            }
+            
+            .backdrop-blur-sm {
+                backdrop-filter: none !important;
+            }
+            
+            .transition-all,
+            .transition-colors,
+            .transition-shadow {
+                transition: none !important;
+            }
         }
         
         .animate-pulse-slow {
@@ -1419,7 +1440,7 @@
             document.getElementById('editModal').classList.remove('flex');
         }
 
-        // Calendar functionality
+        // Calendar functionality - Optimized for mobile
         function renderCalendar() {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
@@ -1428,77 +1449,69 @@
                 new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
             const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
             const startDate = new Date(firstDay);
             startDate.setDate(startDate.getDate() - firstDay.getDay());
 
             const calendarGrid = document.getElementById('calendarGrid');
-            calendarGrid.innerHTML = '';
+            
+            // Use innerHTML for better performance instead of createElement
+            let calendarHTML = '';
 
             // Days of week header
             const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
             daysOfWeek.forEach(day => {
-                const dayHeader = document.createElement('div');
-                dayHeader.className = 'p-2 sm:p-4 text-center font-bold text-gray-700 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg shadow-sm text-xs sm:text-base';
-                dayHeader.textContent = day;
-                calendarGrid.appendChild(dayHeader);
+                calendarHTML += `<div class="p-1 sm:p-4 text-center font-bold text-gray-700 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg text-xs sm:text-base">${day}</div>`;
+            });
+
+            // Pre-calculate transactions by date for better performance
+            const transactionsByDate = {};
+            transactions.forEach(t => {
+                if (!transactionsByDate[t.date]) {
+                    transactionsByDate[t.date] = [];
+                }
+                transactionsByDate[t.date].push(t);
             });
 
             // Calendar days
             for (let i = 0; i < 42; i++) {
                 const date = new Date(startDate);
                 date.setDate(startDate.getDate() + i);
-                
-                const dayElement = document.createElement('div');
-                dayElement.className = `calendar-day border-2 border-white/50 p-2 sm:p-3 rounded-lg cursor-pointer hover-lift hover:shadow-lg transition-all duration-200 ${
-                    date.getMonth() !== month ? 'bg-gray-200/50 text-gray-400' : 'bg-white/80 backdrop-blur-sm hover:bg-white'
-                }`;
-                
-                // Add click event to show day transactions
-                dayElement.onclick = () => showDayTransactions(date);
-                
-                const dayNumber = document.createElement('div');
-                dayNumber.className = 'font-bold text-center mb-1 sm:mb-2 text-sm sm:text-lg';
-                dayNumber.textContent = date.getDate();
-                dayElement.appendChild(dayNumber);
-
-                // Add transaction dots and summary
                 const dateStr = date.toISOString().split('T')[0];
-                const dayTransactions = transactions.filter(t => t.date === dateStr);
+                const dayTransactions = transactionsByDate[dateStr] || [];
                 
+                const isCurrentMonth = date.getMonth() === month;
+                const dayClass = isCurrentMonth ? 'bg-white/80 hover:bg-white' : 'bg-gray-200/50 text-gray-400';
+                
+                let dayContent = `<div class="font-bold text-center mb-1 text-xs sm:text-lg">${date.getDate()}</div>`;
+                
+                // Simplified mobile view - just show count
                 if (dayTransactions.length > 0) {
-                    const dotsContainer = document.createElement('div');
-                    dotsContainer.className = 'flex justify-center space-x-1 mb-2';
+                    const incomeCount = dayTransactions.filter(t => t.type === 'income').length;
+                    const expenseCount = dayTransactions.filter(t => t.type === 'expense').length;
                     
-                    dayTransactions.slice(0, 3).forEach((transaction) => {
-                        const dot = document.createElement('div');
-                        dot.className = `w-2 h-2 rounded-full ${transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'} shadow-sm`;
-                        dotsContainer.appendChild(dot);
-                    });
-                    
-                    if (dayTransactions.length > 3) {
-                        const moreDot = document.createElement('div');
-                        moreDot.className = 'w-2 h-2 rounded-full bg-gray-400 shadow-sm';
-                        dotsContainer.appendChild(moreDot);
+                    // Mobile: Simple dot indicators
+                    dayContent += `<div class="flex justify-center space-x-1 mb-1">`;
+                    if (incomeCount > 0) {
+                        dayContent += `<div class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500"></div>`;
                     }
+                    if (expenseCount > 0) {
+                        dayContent += `<div class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500"></div>`;
+                    }
+                    dayContent += `</div>`;
                     
-                    dayElement.appendChild(dotsContainer);
-                    
-                    // Add transaction count
-                    const countElement = document.createElement('div');
-                    countElement.className = 'text-xs text-center text-gray-600 font-medium hidden sm:block';
-                    countElement.textContent = `${dayTransactions.length} transação${dayTransactions.length > 1 ? 'ões' : ''}`;
-                    dayElement.appendChild(countElement);
-                    
-                    // Add mobile count indicator
-                    const mobileCountElement = document.createElement('div');
-                    mobileCountElement.className = 'text-xs text-center text-gray-600 font-medium block sm:hidden';
-                    mobileCountElement.textContent = `${dayTransactions.length}`;
-                    dayElement.appendChild(mobileCountElement);
+                    // Count indicator
+                    dayContent += `<div class="text-xs text-center text-gray-600 font-medium">${dayTransactions.length}</div>`;
                 }
-
-                calendarGrid.appendChild(dayElement);
+                
+                calendarHTML += `
+                    <div class="calendar-day border border-white/50 p-1 sm:p-3 rounded-lg cursor-pointer ${dayClass} transition-colors duration-200 min-h-[60px] sm:min-h-[80px]" 
+                         onclick="showDayTransactions(new Date('${dateStr}T00:00:00'))">
+                        ${dayContent}
+                    </div>
+                `;
             }
+            
+            calendarGrid.innerHTML = calendarHTML;
         }
 
         function previousMonth() {
@@ -1744,5 +1757,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96da67e0e1809882',t:'MTc1NDk0MzMzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96da72283569940e',t:'MTc1NDk0Mzc1NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
