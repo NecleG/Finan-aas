@@ -10,9 +10,9 @@
     
     <!-- Firebase SDKs -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBhRH760_hAthw737CrzmioyZrzCeK5H8s",
@@ -25,8 +25,12 @@
         };
         
         const app = initializeApp(firebaseConfig);
-        window.auth = getAuth(app);
-        window.db = getFirestore(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Disponibilizar globalmente
+        window.auth = auth;
+        window.db = db;
         window.GoogleAuthProvider = GoogleAuthProvider;
         window.signInWithEmailAndPassword = signInWithEmailAndPassword;
         window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
@@ -44,6 +48,43 @@
         window.where = where;
         window.orderBy = orderBy;
         window.onSnapshot = onSnapshot;
+        
+        // Inicializar listener de autenticação quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAuth();
+        });
+        
+        function initializeAuth() {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    window.currentUser = user;
+                    
+                    // Mostrar nome do usuário
+                    const displayName = user.displayName || user.email.split('@')[0];
+                    document.getElementById('userDisplayName').textContent = displayName;
+                    
+                    // Esconder tela de login e mostrar app
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('appContainer').classList.remove('hidden');
+                    
+                    // Carregar transações do usuário
+                    window.loadTransactionsFromFirebase();
+                    
+                } else {
+                    window.currentUser = null;
+                    
+                    // Limpar dados locais
+                    window.transactions = [];
+                    if (window.unsubscribeTransactions) {
+                        window.unsubscribeTransactions();
+                    }
+                    
+                    // Mostrar tela de login e esconder app
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                    document.getElementById('appContainer').classList.add('hidden');
+                }
+            });
+        }
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -746,7 +787,7 @@
     </div>
 
     <script>
-        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        window.transactions = [];
         let currentFilter = 'all';
         let selectedMonthYear = 'all';
         let currentCalendarDate = new Date();
@@ -759,7 +800,8 @@
         document.getElementById('dueDate').valueAsDate = new Date();
 
         function saveTransactions() {
-            localStorage.setItem('transactions', JSON.stringify(transactions));
+            // Função mantida para compatibilidade, mas não usa mais localStorage
+            // Os dados são salvos automaticamente no Firebase
         }
 
         function formatCurrency(amount) {
@@ -816,8 +858,8 @@
 
         function populateMonthYearFilters() {
             // Obter todos os anos e meses únicos das transações
-            const allYears = [...new Set(transactions.map(t => new Date(t.dueDate + 'T12:00:00').getFullYear()))].sort().reverse();
-            const allMonthYears = [...new Set(transactions.map(t => getMonthYear(t.dueDate)))].sort().reverse();
+            const allYears = [...new Set(window.transactions.map(t => new Date(t.dueDate + 'T12:00:00').getFullYear()))].sort().reverse();
+            const allMonthYears = [...new Set(window.transactions.map(t => getMonthYear(t.dueDate)))].sort().reverse();
             
             const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
                            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -914,7 +956,7 @@
         }
 
         function getFilteredTransactions() {
-            let filtered = transactions;
+            let filtered = window.transactions;
             
             // Filtro por mês/ano
             if (selectedMonthYear !== 'all') {
@@ -1715,8 +1757,8 @@
 
     <script>
         // Variáveis globais para Firebase
-        let currentUser = null;
-        let unsubscribeTransactions = null;
+        window.currentUser = null;
+        window.unsubscribeTransactions = null;
 
         // Função para alternar visibilidade da senha
         function togglePasswordVisibility(inputId, button) {
@@ -1778,8 +1820,8 @@
             setButtonLoading('googleLoginBtn', true);
             
             try {
-                const provider = new GoogleAuthProvider();
-                const result = await signInWithPopup(auth, provider);
+                const provider = new window.GoogleAuthProvider();
+                const result = await window.signInWithPopup(window.auth, provider);
                 showMessage('Login realizado com sucesso!');
             } catch (error) {
                 console.error('Erro no login com Google:', error);
@@ -1798,7 +1840,7 @@
             const password = document.getElementById('loginPassword').value;
             
             try {
-                await signInWithEmailAndPassword(auth, email, password);
+                await window.signInWithEmailAndPassword(window.auth, email, password);
                 showMessage('Login realizado com sucesso!');
             } catch (error) {
                 console.error('Erro no login:', error);
@@ -1851,8 +1893,8 @@
             }
             
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await updateProfile(userCredential.user, { displayName: name });
+                const userCredential = await window.createUserWithEmailAndPassword(window.auth, email, password);
+                await window.updateProfile(userCredential.user, { displayName: name });
                 showMessage('Conta criada com sucesso!');
             } catch (error) {
                 console.error('Erro no registro:', error);
@@ -1881,10 +1923,10 @@
         // Função de logout
         async function logout() {
             try {
-                if (unsubscribeTransactions) {
-                    unsubscribeTransactions();
+                if (window.unsubscribeTransactions) {
+                    window.unsubscribeTransactions();
                 }
-                await signOut(auth);
+                await window.signOut(window.auth);
                 showMessage('Logout realizado com sucesso!');
             } catch (error) {
                 console.error('Erro no logout:', error);
@@ -1893,20 +1935,27 @@
         }
 
         // Função para carregar transações do Firebase
-        async function loadTransactionsFromFirebase() {
-            if (!currentUser) return;
+        window.loadTransactionsFromFirebase = async function() {
+            if (!window.currentUser) return;
             
             try {
-                const transactionsRef = collection(db, 'users', currentUser.uid, 'events');
-                const q = query(transactionsRef, orderBy('createdAt', 'desc'));
+                const transactionsRef = window.collection(window.db, 'users', window.currentUser.uid, 'transactions');
+                const q = window.query(transactionsRef, window.orderBy('createdAt', 'desc'));
                 
                 // Listener em tempo real
-                unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-                    transactions = [];
+                window.unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
+                    window.transactions = [];
                     snapshot.forEach((doc) => {
-                        transactions.push({
+                        const data = doc.data();
+                        window.transactions.push({
                             id: doc.id,
-                            ...doc.data()
+                            type: data.type || 'expense',
+                            description: data.description || 'Sem descrição',
+                            amount: data.amount || 0,
+                            dueDate: data.dueDate || new Date().toISOString().split('T')[0],
+                            category: data.category || 'outros',
+                            paid: data.paid || false,
+                            createdAt: data.createdAt || new Date().toISOString()
                         });
                     });
                     
@@ -1921,15 +1970,15 @@
                 console.error('Erro ao carregar transações:', error);
                 showMessage('Erro ao carregar dados', 'error');
             }
-        }
+        };
 
         // Função para salvar transação no Firebase
         async function saveTransactionToFirebase(transaction) {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
             try {
-                const transactionsRef = collection(db, 'users', currentUser.uid, 'events');
-                await addDoc(transactionsRef, transaction);
+                const transactionsRef = window.collection(window.db, 'users', window.currentUser.uid, 'transactions');
+                await window.addDoc(transactionsRef, transaction);
             } catch (error) {
                 console.error('Erro ao salvar transação:', error);
                 showMessage('Erro ao salvar transação', 'error');
@@ -1938,11 +1987,11 @@
 
         // Função para atualizar transação no Firebase
         async function updateTransactionInFirebase(transactionId, updates) {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
             try {
-                const transactionRef = doc(db, 'users', currentUser.uid, 'events', transactionId);
-                await updateDoc(transactionRef, updates);
+                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'transactions', transactionId);
+                await window.updateDoc(transactionRef, updates);
             } catch (error) {
                 console.error('Erro ao atualizar transação:', error);
                 showMessage('Erro ao atualizar transação', 'error');
@@ -1951,11 +2000,11 @@
 
         // Função para deletar transação do Firebase
         async function deleteTransactionFromFirebase(transactionId) {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
             try {
-                const transactionRef = doc(db, 'users', currentUser.uid, 'events', transactionId);
-                await deleteDoc(transactionRef);
+                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'transactions', transactionId);
+                await window.deleteDoc(transactionRef);
             } catch (error) {
                 console.error('Erro ao deletar transação:', error);
                 showMessage('Erro ao deletar transação', 'error');
@@ -1984,7 +2033,7 @@
 
         const originalTogglePaid = togglePaid;
         togglePaid = async function(id) {
-            const transaction = transactions.find(t => t.id === id);
+            const transaction = window.transactions.find(t => t.id === id);
             if (transaction) {
                 const updates = { paid: !transaction.paid };
                 await updateTransactionInFirebase(id, updates);
@@ -2038,36 +2087,7 @@
             'outros': '📋 Outros'
         };
 
-        // Listener para mudanças de autenticação
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                
-                // Mostrar nome do usuário
-                const displayName = user.displayName || user.email.split('@')[0];
-                document.getElementById('userDisplayName').textContent = displayName;
-                
-                // Esconder tela de login e mostrar app
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('appContainer').classList.remove('hidden');
-                
-                // Carregar transações do usuário
-                loadTransactionsFromFirebase();
-                
-            } else {
-                currentUser = null;
-                
-                // Limpar dados locais
-                transactions = [];
-                if (unsubscribeTransactions) {
-                    unsubscribeTransactions();
-                }
-                
-                // Mostrar tela de login e esconder app
-                document.getElementById('loginScreen').classList.remove('hidden');
-                document.getElementById('appContainer').classList.add('hidden');
-            }
-        });
+        // Listener de autenticação já está configurado no módulo Firebase acima
 
         // Remover inicialização local (agora será feita após login)
         // populateMonthYearFilters();
@@ -2076,5 +2096,5 @@
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d804d7506e9414',t:'MTc1NDkxODMwNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8126ba2fd9411',t:'MTc1NDkxODg2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
