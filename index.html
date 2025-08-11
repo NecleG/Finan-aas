@@ -2012,33 +2012,34 @@
                 }
                 
                 console.log('Carregando transações para usuário:', window.currentUser.uid);
-                console.log('Token do usuário:', await window.currentUser.getIdToken());
                 
-                const transactionsRef = window.collection(window.db, 'transactions');
-                const q = window.query(
-                    transactionsRef, 
-                    window.where('userId', '==', window.currentUser.uid)
-                );
+                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
+                const userEventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
                 
                 // Listener em tempo real
-                window.unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
+                window.unsubscribeTransactions = window.onSnapshot(userEventsRef, (snapshot) => {
                     console.log('Snapshot recebido, documentos:', snapshot.size);
                     window.transactions = [];
                     
                     snapshot.forEach((doc) => {
                         const data = doc.data();
-                        window.transactions.push({
-                            id: doc.id,
-                            type: data.type || 'expense',
-                            description: data.description || 'Sem descrição',
-                            amount: data.amount || 0,
-                            dueDate: data.dueDate || new Date().toISOString().split('T')[0],
-                            category: data.category || 'outros',
-                            paid: data.paid || false,
-                            createdAt: data.createdAt || new Date().toISOString(),
-                            userId: data.userId
-                        });
+                        // Filtrar apenas eventos que são transações financeiras
+                        if (data.isFinancialTransaction) {
+                            window.transactions.push({
+                                id: doc.id,
+                                type: data.type || 'expense',
+                                description: data.description || 'Sem descrição',
+                                amount: data.amount || 0,
+                                dueDate: data.dueDate || new Date().toISOString().split('T')[0],
+                                category: data.category || 'outros',
+                                paid: data.paid || false,
+                                createdAt: data.createdAt || new Date().toISOString()
+                            });
+                        }
                     });
+                    
+                    // Ordenar por data de criação (mais recentes primeiro)
+                    window.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                     
                     console.log('Transações carregadas:', window.transactions.length);
                     
@@ -2050,20 +2051,7 @@
                 }, (error) => {
                     console.error('Erro no listener:', error);
                     if (error.code === 'permission-denied') {
-                        showMessage('❌ Erro de permissão no Firebase. Configure as regras do Firestore para permitir acesso aos usuários autenticados.', 'error');
-                        console.log('INSTRUÇÕES PARA CORRIGIR:');
-                        console.log('1. Acesse o Firebase Console');
-                        console.log('2. Vá em Firestore Database > Rules');
-                        console.log('3. Substitua as regras por:');
-                        console.log(`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /transactions/{document} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-    }
-  }
-}`);
+                        showMessage('❌ Erro de permissão. Suas regras do Firebase estão funcionando corretamente!', 'error');
                     } else {
                         showMessage('Erro ao carregar dados: ' + error.message, 'error');
                     }
@@ -2085,17 +2073,18 @@ service cloud.firestore {
             
             try {
                 console.log('Salvando transação para usuário:', window.currentUser.uid);
-                const transactionsRef = window.collection(window.db, 'transactions');
-                const docRef = await window.addDoc(transactionsRef, {
+                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
+                const userEventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
+                const docRef = await window.addDoc(userEventsRef, {
                     ...transaction,
-                    userId: window.currentUser.uid,
+                    isFinancialTransaction: true, // Marcar como transação financeira
                     createdAt: new Date().toISOString()
                 });
                 console.log('Transação salva com ID:', docRef.id);
             } catch (error) {
                 console.error('Erro ao salvar transação:', error);
                 if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para salvar. Configure as regras do Firebase!', 'error');
+                    showMessage('❌ Sem permissão para salvar. Verifique se está logado!', 'error');
                 } else {
                     showMessage('Erro ao salvar transação: ' + error.message, 'error');
                 }
@@ -2113,7 +2102,8 @@ service cloud.firestore {
             try {
                 console.log('Atualizando transação:', transactionId, 'para usuário:', window.currentUser.uid);
                 const docId = String(transactionId);
-                const transactionRef = window.doc(window.db, 'transactions', docId);
+                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
+                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', docId);
                 
                 await window.updateDoc(transactionRef, {
                     ...updates,
@@ -2123,7 +2113,7 @@ service cloud.firestore {
             } catch (error) {
                 console.error('Erro ao atualizar transação:', error);
                 if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para atualizar. Configure as regras do Firebase!', 'error');
+                    showMessage('❌ Sem permissão para atualizar. Verifique se está logado!', 'error');
                 } else if (error.code === 'not-found') {
                     showMessage('Transação não encontrada', 'error');
                 } else {
@@ -2143,14 +2133,15 @@ service cloud.firestore {
             try {
                 console.log('Deletando transação:', transactionId, 'para usuário:', window.currentUser.uid);
                 const docId = String(transactionId);
-                const transactionRef = window.doc(window.db, 'transactions', docId);
+                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
+                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', docId);
                 
                 await window.deleteDoc(transactionRef);
                 console.log('Transação deletada com sucesso');
             } catch (error) {
                 console.error('Erro ao deletar transação:', error);
                 if (error.code === 'permission-denied') {
-                    showMessage('❌ Sem permissão para deletar. Configure as regras do Firebase!', 'error');
+                    showMessage('❌ Sem permissão para deletar. Verifique se está logado!', 'error');
                 } else if (error.code === 'not-found') {
                     showMessage('Transação não encontrada', 'error');
                 } else {
@@ -2244,5 +2235,5 @@ service cloud.firestore {
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d839bc56c45221',t:'MTc1NDkyMDQ3My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8410fd2275221',t:'MTc1NDkyMDc3My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
