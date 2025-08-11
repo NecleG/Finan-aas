@@ -12,7 +12,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyBhRH760_hAthw737CrzmioyZrzCeK5H8s",
@@ -41,6 +41,7 @@
         window.collection = collection;
         window.addDoc = addDoc;
         window.getDocs = getDocs;
+        window.getDoc = getDoc;
         window.doc = doc;
         window.updateDoc = updateDoc;
         window.deleteDoc = deleteDoc;
@@ -2002,6 +2003,15 @@
             }
         }
 
+        // ===== HELPERS PADRONIZADOS PARA FIRESTORE =====
+        function getEventsCollectionRef(uid) {
+            return window.collection(window.db, 'users', uid, 'transactions');
+        }
+
+        function getEventDocRef(uid, eventId) {
+            return window.doc(window.db, 'users', uid, 'transactions', eventId);
+        }
+
         // Função para carregar transações do Firebase
         window.loadTransactionsFromFirebase = async function() {
             if (!window.currentUser) {
@@ -2018,34 +2028,29 @@
                 
                 console.log('Carregando transações para usuário:', window.currentUser.uid);
                 
-                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
-                const userEventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
+                // Usar caminho padronizado: /users/{userId}/transactions/
+                const userTransactionsRef = getEventsCollectionRef(window.currentUser.uid);
+                const q = window.query(userTransactionsRef, window.orderBy('createdAt', 'desc'));
                 
                 // Listener em tempo real
-                window.unsubscribeTransactions = window.onSnapshot(userEventsRef, (snapshot) => {
+                window.unsubscribeTransactions = window.onSnapshot(q, (snapshot) => {
                     console.log('Snapshot recebido, documentos:', snapshot.size);
                     window.transactions = [];
                     
                     snapshot.forEach((doc) => {
                         const data = doc.data();
-                        // Filtrar apenas eventos que são transações financeiras
-                        if (data.isFinancialTransaction) {
-                            window.transactions.push({
-                                id: doc.id, // Usar o ID do documento do Firebase
-                                firebaseId: doc.id, // Manter referência explícita
-                                type: data.type || 'expense',
-                                description: data.description || 'Sem descrição',
-                                amount: data.amount || 0,
-                                dueDate: data.dueDate || new Date().toISOString().split('T')[0],
-                                category: data.category || 'outros',
-                                paid: data.paid || false,
-                                createdAt: data.createdAt || new Date().toISOString()
-                            });
-                        }
+                        window.transactions.push({
+                            id: doc.id, // ID do Firebase
+                            firebaseId: doc.id, // Referência explícita
+                            type: data.type || 'expense',
+                            description: data.description || 'Sem descrição',
+                            amount: data.amount || 0,
+                            dueDate: data.dueDate || new Date().toISOString().split('T')[0],
+                            category: data.category || 'outros',
+                            paid: data.paid || false,
+                            createdAt: data.createdAt || new Date().toISOString()
+                        });
                     });
-                    
-                    // Ordenar por data de criação (mais recentes primeiro)
-                    window.transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                     
                     console.log('Transações carregadas:', window.transactions.length);
                     
@@ -2057,7 +2062,7 @@
                 }, (error) => {
                     console.error('Erro no listener:', error);
                     if (error.code === 'permission-denied') {
-                        showMessage('❌ Erro de permissão. Suas regras do Firebase estão funcionando corretamente!', 'error');
+                        showMessage('❌ Erro de permissão ao carregar transações!', 'error');
                     } else {
                         showMessage('Erro ao carregar dados: ' + error.message, 'error');
                     }
@@ -2080,11 +2085,11 @@
             try {
                 console.log('Salvando transação para usuário:', window.currentUser.uid);
                 console.log('Dados da transação:', transaction);
-                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
-                const userEventsRef = window.collection(window.db, 'users', window.currentUser.uid, 'events');
-                const docRef = await window.addDoc(userEventsRef, {
+                
+                // Usar helper padronizado
+                const userTransactionsRef = getEventsCollectionRef(window.currentUser.uid);
+                const docRef = await window.addDoc(userTransactionsRef, {
                     ...transaction,
-                    isFinancialTransaction: true, // Marcar como transação financeira
                     createdAt: new Date().toISOString()
                 });
                 console.log('✅ Transação salva com sucesso! ID:', docRef.id);
@@ -2110,17 +2115,26 @@
             
             try {
                 console.log('Atualizando transação:', transactionId, 'para usuário:', window.currentUser.uid);
-                const docId = String(transactionId);
-                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
-                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', docId);
+                
+                // Usar helper padronizado
+                const transactionRef = getEventDocRef(window.currentUser.uid, transactionId);
+                
+                // Verificar se o documento existe antes de atualizar
+                const docSnap = await window.getDoc(transactionRef);
+                
+                if (!docSnap.exists()) {
+                    console.warn('Documento não encontrado:', transactionId);
+                    showMessage('Transação não encontrada', 'error');
+                    return;
+                }
                 
                 await window.updateDoc(transactionRef, {
                     ...updates,
                     updatedAt: new Date().toISOString()
                 });
-                console.log('Transação atualizada com sucesso');
+                console.log('✅ Transação atualizada com sucesso');
             } catch (error) {
-                console.error('Erro ao atualizar transação:', error);
+                console.error('❌ Erro ao atualizar transação:', error);
                 if (error.code === 'permission-denied') {
                     showMessage('❌ Sem permissão para atualizar. Verifique se está logado!', 'error');
                 } else if (error.code === 'not-found') {
@@ -2141,14 +2155,14 @@
             
             try {
                 console.log('Deletando transação:', transactionId, 'para usuário:', window.currentUser.uid);
-                const docId = String(transactionId);
-                // Usar a estrutura /users/{userId}/events/ que suas regras permitem
-                const transactionRef = window.doc(window.db, 'users', window.currentUser.uid, 'events', docId);
+                
+                // Usar helper padronizado
+                const transactionRef = getEventDocRef(window.currentUser.uid, transactionId);
                 
                 await window.deleteDoc(transactionRef);
-                console.log('Transação deletada com sucesso');
+                console.log('✅ Transação deletada com sucesso');
             } catch (error) {
-                console.error('Erro ao deletar transação:', error);
+                console.error('❌ Erro ao deletar transação:', error);
                 if (error.code === 'permission-denied') {
                     showMessage('❌ Sem permissão para deletar. Verifique se está logado!', 'error');
                 } else if (error.code === 'not-found') {
@@ -2267,5 +2281,5 @@
         // renderDailyReminders();
         // renderCalendar();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d849ed05b55219',t:'MTc1NDkyMTEzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d85d64554d1b33',t:'MTc1NDkyMTkzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
