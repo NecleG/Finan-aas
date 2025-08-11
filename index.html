@@ -186,8 +186,9 @@
                 </h1>
                 <div class="flex items-center space-x-4">
                     <div class="text-right bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-                        <p class="text-sm text-white/80 font-medium">💰 Saldo Atual</p>
+                        <p class="text-sm text-white/80 font-medium">💰 Saldo do Mês Atual</p>
                         <p id="currentBalance" class="text-3xl font-bold text-white">R$ 0,00</p>
+                        <p class="text-xs text-white/60 mt-1" id="currentMonthLabel"></p>
                     </div>
                     <div id="userInfo" class="hidden bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
                         <p class="text-sm text-white/80">Usuário:</p>
@@ -342,6 +343,29 @@
 
         <!-- Dashboard Tab -->
         <div id="dashboard" class="tab-content hidden">
+            <!-- Dashboard Filters -->
+            <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">📅 Filtrar por Mês/Ano</label>
+                        <input type="month" id="dashboardFilterMonth" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">📊 Tipo de Transação</label>
+                        <select id="dashboardFilterType" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 hover:shadow-md">
+                            <option value="all">Todas</option>
+                            <option value="completed">Apenas Concluídas</option>
+                            <option value="pending">Apenas Pendentes</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="applyDashboardFilters()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-indigo-500 hover:to-purple-500 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <i class="fas fa-filter mr-2"></i>Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                 <div class="bg-gradient-to-br from-green-400 to-green-600 rounded-2xl shadow-xl p-8 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
@@ -526,6 +550,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeAuth();
             document.getElementById('date').valueAsDate = new Date();
+            
+            // Set default dashboard filter to current month
+            const currentMonth = new Date().toISOString().substring(0, 7);
+            document.getElementById('dashboardFilterMonth').value = currentMonth;
+            
             initCharts();
         });
 
@@ -847,12 +876,36 @@
 
         // Update dashboard
         function updateDashboard() {
-            const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-            const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-            const balance = totalIncome - totalExpenses;
-            const pendingCount = transactions.filter(t => !t.completed).length;
+            // Get current month for balance calculation
+            const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
+            
+            // Update current month label
+            const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            document.getElementById('currentMonthLabel').textContent = currentMonthName;
+            
+            // Filter transactions for current month only for balance
+            const currentMonthTransactions = transactions.filter(t => t.date.startsWith(currentMonth));
+            const currentMonthIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const currentMonthExpenses = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const currentMonthBalance = currentMonthIncome - currentMonthExpenses;
 
-            document.getElementById('currentBalance').textContent = formatCurrency(balance);
+            document.getElementById('currentBalance').textContent = formatCurrency(currentMonthBalance);
+            
+            // Update balance color
+            const balanceElement = document.getElementById('currentBalance');
+            balanceElement.className = currentMonthBalance >= 0 ? 'text-3xl font-bold text-white' : 'text-3xl font-bold text-red-300';
+            
+            // Update dashboard cards with filtered data
+            updateDashboardCards();
+        }
+
+        // Update dashboard cards with filters
+        function updateDashboardCards() {
+            const filteredTransactions = getDashboardFilteredTransactions();
+            
+            const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const pendingCount = filteredTransactions.filter(t => !t.completed).length;
             
             // Update dashboard cards if they exist
             const totalIncome2 = document.getElementById('totalIncome2');
@@ -862,10 +915,39 @@
             if (totalIncome2) totalIncome2.textContent = formatCurrency(totalIncome);
             if (totalExpenses2) totalExpenses2.textContent = formatCurrency(totalExpenses);
             if (pendingCount2) pendingCount2.textContent = pendingCount;
+        }
 
-            // Update balance color
-            const balanceElement = document.getElementById('currentBalance');
-            balanceElement.className = balance >= 0 ? 'text-3xl font-bold text-white' : 'text-3xl font-bold text-red-300';
+        // Get filtered transactions for dashboard
+        function getDashboardFilteredTransactions() {
+            let filtered = [...transactions];
+            
+            const filterMonth = document.getElementById('dashboardFilterMonth').value;
+            const filterType = document.getElementById('dashboardFilterType').value;
+
+            if (filterMonth) {
+                filtered = filtered.filter(t => t.date.startsWith(filterMonth));
+            } else {
+                // Default to current month if no filter is set
+                const currentMonth = new Date().toISOString().substring(0, 7);
+                filtered = filtered.filter(t => t.date.startsWith(currentMonth));
+            }
+
+            if (filterType !== 'all') {
+                if (filterType === 'completed') {
+                    filtered = filtered.filter(t => t.completed);
+                } else if (filterType === 'pending') {
+                    filtered = filtered.filter(t => !t.completed);
+                }
+            }
+
+            return filtered;
+        }
+
+        // Apply dashboard filters
+        function applyDashboardFilters() {
+            updateDashboardCards();
+            updateDashboardCharts();
+            showSuccessMessage('Filtros aplicados no dashboard!');
         }
 
         // Priority helper functions
@@ -1255,9 +1337,15 @@
         }
 
         function updateCharts() {
-            // Category chart - only include completed transactions
+            updateDashboardCharts();
+        }
+
+        function updateDashboardCharts() {
+            const filteredTransactions = getDashboardFilteredTransactions();
+            
+            // Category chart
             const expensesByCategory = {};
-            transactions.filter(t => t.type === 'expense' && t.completed).forEach(t => {
+            filteredTransactions.filter(t => t.type === 'expense').forEach(t => {
                 expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
             });
 
@@ -1265,23 +1353,52 @@
             categoryChart.data.datasets[0].data = Object.values(expensesByCategory);
             categoryChart.update();
 
-            // Monthly chart - only include completed transactions
+            // Monthly chart - show evolution over time
             const monthlyData = {};
-            transactions.filter(t => t.completed).forEach(t => {
-                const month = t.date.substring(0, 7);
-                if (!monthlyData[month]) {
-                    monthlyData[month] = { income: 0, expense: 0 };
+            
+            // If a specific month is selected, show daily breakdown
+            const filterMonth = document.getElementById('dashboardFilterMonth').value;
+            if (filterMonth) {
+                // Daily breakdown for selected month
+                const daysInMonth = new Date(filterMonth.split('-')[0], filterMonth.split('-')[1], 0).getDate();
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayStr = `${filterMonth}-${day.toString().padStart(2, '0')}`;
+                    monthlyData[dayStr] = { income: 0, expense: 0 };
                 }
-                monthlyData[month][t.type] += t.amount;
-            });
+                
+                filteredTransactions.forEach(t => {
+                    const date = t.date;
+                    if (monthlyData[date]) {
+                        monthlyData[date][t.type] += t.amount;
+                    }
+                });
+                
+                const sortedDays = Object.keys(monthlyData).sort();
+                monthlyChart.data.labels = sortedDays.map(date => {
+                    const day = date.split('-')[2];
+                    return `Dia ${parseInt(day)}`;
+                });
+                monthlyChart.data.datasets[0].data = sortedDays.map(date => monthlyData[date].income);
+                monthlyChart.data.datasets[1].data = sortedDays.map(date => monthlyData[date].expense);
+            } else {
+                // Monthly breakdown for all data
+                transactions.forEach(t => {
+                    const month = t.date.substring(0, 7);
+                    if (!monthlyData[month]) {
+                        monthlyData[month] = { income: 0, expense: 0 };
+                    }
+                    monthlyData[month][t.type] += t.amount;
+                });
 
-            const sortedMonths = Object.keys(monthlyData).sort();
-            monthlyChart.data.labels = sortedMonths.map(month => {
-                const [year, monthNum] = month.split('-');
-                return new Date(year, monthNum - 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-            });
-            monthlyChart.data.datasets[0].data = sortedMonths.map(month => monthlyData[month].income);
-            monthlyChart.data.datasets[1].data = sortedMonths.map(month => monthlyData[month].expense);
+                const sortedMonths = Object.keys(monthlyData).sort();
+                monthlyChart.data.labels = sortedMonths.map(month => {
+                    const [year, monthNum] = month.split('-');
+                    return new Date(year, monthNum - 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+                });
+                monthlyChart.data.datasets[0].data = sortedMonths.map(month => monthlyData[month].income);
+                monthlyChart.data.datasets[1].data = sortedMonths.map(month => monthlyData[month].expense);
+            }
+            
             monthlyChart.update();
         }
 
@@ -1313,5 +1430,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8e3ac12031433',t:'MTc1NDkyNzQzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d8ea766337f1fe',t:'MTc1NDkyNzcxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
