@@ -371,10 +371,24 @@
             <!-- Transactions List -->
             <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
-                    <h3 class="text-xl font-bold text-white flex items-center">
-                        <i class="fas fa-list-alt mr-3"></i>
-                        Suas Transações
-                    </h3>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+                        <h3 class="text-xl font-bold text-white flex items-center">
+                            <i class="fas fa-list-alt mr-3"></i>
+                            Suas Transações
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-white/80 text-sm font-medium mr-2">📊 Ordenar por:</span>
+                            <button onclick="sortTransactions('date')" id="sortDateBtn" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-white/30 hover:border-white/50">
+                                <i class="fas fa-calendar-alt mr-1"></i>Data
+                            </button>
+                            <button onclick="sortTransactions('amount')" id="sortAmountBtn" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-white/30 hover:border-white/50">
+                                <i class="fas fa-dollar-sign mr-1"></i>Valor
+                            </button>
+                            <button onclick="toggleSortOrder()" id="sortOrderBtn" class="bg-white/20 hover:bg-white/30 text-white px-2 py-2 rounded-lg transition-all duration-200 text-sm font-medium border border-white/30 hover:border-white/50" title="Alterar ordem">
+                                <i class="fas fa-sort-amount-down"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div id="transactionsList" class="divide-y divide-gray-100">
                     <!-- Transactions will be populated here -->
@@ -610,6 +624,8 @@
         let currentDate = new Date();
         let categoryChart, monthlyChart;
         let unsubscribeTransactions = null;
+        let currentSortBy = 'date';
+        let sortOrder = 'desc'; // 'asc' or 'desc'
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -621,6 +637,8 @@
             document.getElementById('dashboardFilterMonth').value = currentMonth;
             
             initCharts();
+            updateSortButtons();
+            updateSortOrderButton();
             
             // Show/hide installments field based on checkbox
             document.getElementById('hasInstallments').addEventListener('change', function() {
@@ -1258,7 +1276,62 @@
                 filtered = filtered.filter(t => t.date.startsWith(filterMonth));
             }
 
-            return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+            return applySorting(filtered);
+        }
+
+        // Sorting functions
+        function applySorting(transactions) {
+            return transactions.sort((a, b) => {
+                let comparison = 0;
+                
+                if (currentSortBy === 'date') {
+                    comparison = new Date(a.date) - new Date(b.date);
+                } else if (currentSortBy === 'amount') {
+                    comparison = a.amount - b.amount;
+                }
+                
+                return sortOrder === 'desc' ? -comparison : comparison;
+            });
+        }
+
+        function sortTransactions(sortBy) {
+            currentSortBy = sortBy;
+            updateSortButtons();
+            renderTransactions();
+            showSuccessMessage(`Transações ordenadas por ${sortBy === 'date' ? 'data' : 'valor'}!`);
+        }
+
+        function toggleSortOrder() {
+            sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            updateSortOrderButton();
+            renderTransactions();
+            showSuccessMessage(`Ordem alterada para ${sortOrder === 'desc' ? 'decrescente' : 'crescente'}!`);
+        }
+
+        function updateSortButtons() {
+            // Reset all buttons
+            document.getElementById('sortDateBtn').classList.remove('bg-white/40', 'border-white/60');
+            document.getElementById('sortAmountBtn').classList.remove('bg-white/40', 'border-white/60');
+            
+            // Highlight active button
+            if (currentSortBy === 'date') {
+                document.getElementById('sortDateBtn').classList.add('bg-white/40', 'border-white/60');
+            } else if (currentSortBy === 'amount') {
+                document.getElementById('sortAmountBtn').classList.add('bg-white/40', 'border-white/60');
+            }
+        }
+
+        function updateSortOrderButton() {
+            const sortOrderBtn = document.getElementById('sortOrderBtn');
+            const icon = sortOrderBtn.querySelector('i');
+            
+            if (sortOrder === 'desc') {
+                icon.className = 'fas fa-sort-amount-down';
+                sortOrderBtn.title = 'Ordem: Maior para Menor (clique para inverter)';
+            } else {
+                icon.className = 'fas fa-sort-amount-up';
+                sortOrderBtn.title = 'Ordem: Menor para Maior (clique para inverter)';
+            }
         }
 
         // Apply filters
@@ -1652,5 +1725,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d99e6972905219',t:'MTc1NDkzNTA4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d9d13e96245225',t:'MTc1NDkzNzE2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
