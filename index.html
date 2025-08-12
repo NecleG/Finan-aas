@@ -121,6 +121,20 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-5px); }
         }
+        
+        /* Swipe feedback animation */
+        .swipe-feedback {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Tab transition improvements */
+        .tab-content {
+            transition: opacity 0.3s ease-in-out, transform 0.2s ease-out;
+        }
+        
+        .tab-content.hidden {
+            transform: translateX(10px);
+        }
 
         .completed-transaction {
             text-decoration: line-through;
@@ -243,8 +257,11 @@
                     <div id="userInfo" class="hidden bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
                         <p class="text-sm text-white/80">Usuário:</p>
                         <p id="userEmail" class="text-white font-semibold"></p>
-                        <button onclick="logout()" class="text-xs text-white/70 hover:text-white mt-1">
+                        <button onclick="logout()" class="text-xs text-white/70 hover:text-white mt-1 block">
                             <i class="fas fa-sign-out-alt mr-1"></i>Sair
+                        </button>
+                        <button onclick="testNotification()" class="text-xs text-white/70 hover:text-white mt-1 block">
+                            <i class="fas fa-bell mr-1"></i>Testar Notificação
                         </button>
                     </div>
                 </div>
@@ -681,12 +698,6 @@
         // Tab management
         let currentTabIndex = 0;
         const tabs = ['transactions', 'dashboard', 'calendar'];
-        
-        // Touch/swipe variables
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchEndX = 0;
-        let touchEndY = 0;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -700,7 +711,7 @@
             initCharts();
             updateSortButtons();
             updateSortOrderButton();
-            initSwipeGestures();
+            requestNotificationPermission();
             
             // Show/hide installments field based on checkbox
             document.getElementById('hasInstallments').addEventListener('change', function() {
@@ -736,6 +747,16 @@
                         if (userEmail) userEmail.textContent = user.email || user.displayName;
                         
                         setupRealtimeListener();
+                        
+                        // Set up periodic notification check (every 30 minutes)
+                        setInterval(() => {
+                            checkDueNotifications();
+                        }, 30 * 60 * 1000);
+                        
+                        // Initial check after 5 seconds
+                        setTimeout(() => {
+                            checkDueNotifications();
+                        }, 5000);
                     } else {
                         window.currentUser = null;
                         document.getElementById('loginModal').classList.remove('hidden');
@@ -828,6 +849,35 @@
             }
         });
 
+        // Test notification function
+        function testNotification() {
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    sendNotification(
+                        '🔔 Teste de Notificação',
+                        'As notificações estão funcionando perfeitamente! Você será avisado sobre contas vencendo.',
+                        '✅'
+                    );
+                } else if (Notification.permission === 'default') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            sendNotification(
+                                '🔔 Notificações Ativadas!',
+                                'Perfeito! Agora você receberá lembretes sobre suas contas.',
+                                '✅'
+                            );
+                        } else {
+                            alert('❌ Permissão de notificação negada. Ative nas configurações do navegador para receber lembretes.');
+                        }
+                    });
+                } else {
+                    alert('❌ Notificações bloqueadas. Ative nas configurações do navegador para receber lembretes sobre suas contas.');
+                }
+            } else {
+                alert('❌ Seu navegador não suporta notificações.');
+            }
+        }
+
         // Logout function
         async function logout() {
             try {
@@ -861,6 +911,11 @@
                     renderCalendar();
                     renderReminders();
                     updateCharts();
+                    
+                    // Check for due notifications when data changes
+                    setTimeout(() => {
+                        checkDueNotifications();
+                    }, 1000);
                 }, (error) => {
                     console.error('Erro ao escutar mudanças:', error);
                 });
@@ -902,76 +957,7 @@
             }
         }
 
-        // Swipe gesture initialization
-        function initSwipeGestures() {
-            // Disabled swipe gestures to prevent conflicts with form interactions
-            return;
-        }
-        
-        function handleTouchStart(e) {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-        }
-        
-        function handleTouchEnd(e) {
-            touchEndX = e.changedTouches[0].clientX;
-            touchEndY = e.changedTouches[0].clientY;
-            handleSwipe();
-        }
-        
-        function handleMouseStart(e) {
-            touchStartX = e.clientX;
-            touchStartY = e.clientY;
-        }
-        
-        function handleMouseEnd(e) {
-            touchEndX = e.clientX;
-            touchEndY = e.clientY;
-            handleSwipe();
-        }
-        
-        function handleSwipe() {
-            const deltaX = touchEndX - touchStartX;
-            const deltaY = touchEndY - touchStartY;
-            const minSwipeDistance = 50;
-            
-            // Check if it's a horizontal swipe (more horizontal than vertical)
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
-                if (deltaX > 0) {
-                    // Swipe right - previous tab
-                    switchToPreviousTab();
-                } else {
-                    // Swipe left - next tab
-                    switchToNextTab();
-                }
-            }
-        }
-        
-        function switchToNextTab() {
-            currentTabIndex = (currentTabIndex + 1) % tabs.length;
-            showTabByIndex(currentTabIndex);
-            showSuccessMessage(`📱 ${getTabDisplayName(tabs[currentTabIndex])}`);
-        }
-        
-        function switchToPreviousTab() {
-            currentTabIndex = (currentTabIndex - 1 + tabs.length) % tabs.length;
-            showTabByIndex(currentTabIndex);
-            showSuccessMessage(`📱 ${getTabDisplayName(tabs[currentTabIndex])}`);
-        }
-        
-        function showTabByIndex(index) {
-            const tabName = tabs[index];
-            showTab(tabName, index);
-        }
-        
-        function getTabDisplayName(tabName) {
-            const names = {
-                'transactions': 'Transações',
-                'dashboard': 'Dashboard', 
-                'calendar': 'Calendário'
-            };
-            return names[tabName] || tabName;
-        }
+
 
         // Tab functionality
         function showTab(tabName, tabIndex = null) {
@@ -1116,6 +1102,99 @@
             setTimeout(() => {
                 successMsg.remove();
             }, 3000);
+        }
+
+        // Notification functions
+        function requestNotificationPermission() {
+            if ('Notification' in window && 'serviceWorker' in navigator) {
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            showSuccessMessage('🔔 Notificações ativadas! Você será avisado sobre contas vencendo.');
+                        }
+                    });
+                }
+            }
+        }
+
+        function sendNotification(title, body, icon = '💰') {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: 'data:image/svg+xml;base64,' + btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#4f46e5"/>
+                            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">${icon}</text>
+                        </svg>
+                    `),
+                    badge: 'data:image/svg+xml;base64,' + btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#ef4444"/>
+                            <text x="50" y="65" text-anchor="middle" font-size="40" fill="white">💸</text>
+                        </svg>
+                    `),
+                    tag: 'finance-reminder',
+                    requireInteraction: true,
+                    actions: [
+                        {
+                            action: 'view',
+                            title: 'Ver Contas'
+                        },
+                        {
+                            action: 'dismiss',
+                            title: 'Dispensar'
+                        }
+                    ]
+                });
+
+                notification.onclick = function() {
+                    window.focus();
+                    showTab('transactions', 0);
+                    notification.close();
+                };
+
+                // Auto close after 10 seconds
+                setTimeout(() => {
+                    notification.close();
+                }, 10000);
+            }
+        }
+
+        function checkDueNotifications() {
+            if (!window.currentUser) return;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            // Check for bills due today
+            const dueToday = transactions.filter(t => 
+                !t.completed && t.date === today && t.type === 'expense'
+            );
+            
+            // Check for bills due tomorrow
+            const dueTomorrow = transactions.filter(t => 
+                !t.completed && t.date === tomorrowStr && t.type === 'expense'
+            );
+            
+            if (dueToday.length > 0) {
+                const totalAmount = dueToday.reduce((sum, t) => sum + t.amount, 0);
+                sendNotification(
+                    '🚨 Contas Vencendo Hoje!',
+                    `Você tem ${dueToday.length} conta(s) para pagar hoje no valor de ${formatCurrency(totalAmount)}`,
+                    '🚨'
+                );
+            }
+            
+            if (dueTomorrow.length > 0) {
+                const totalAmount = dueTomorrow.reduce((sum, t) => sum + t.amount, 0);
+                sendNotification(
+                    '⏰ Contas Vencendo Amanhã',
+                    `Você tem ${dueTomorrow.length} conta(s) para pagar amanhã no valor de ${formatCurrency(totalAmount)}`,
+                    '⏰'
+                );
+            }
         }
 
         // Render reminders
@@ -2071,5 +2150,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e17557e56d941a',t:'MTc1NTAxNzI4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e18af0e0bf9882',t:'MTc1NTAxODE3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
