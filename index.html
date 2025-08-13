@@ -398,7 +398,10 @@
                     </div>
                 </div>
                 <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 text-center mobile-card">
-                    <p class="text-sm text-white/80 font-medium mobile-text">💰 Saldo do Mês Atual</p>
+                    <div class="flex items-center justify-center space-x-2 mb-3">
+                        <p class="text-sm text-white/80 font-medium mobile-text">💰 Saldo de</p>
+                        <input type="month" id="balanceMonthMobile" class="bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" onchange="updateBalanceDisplay()">
+                    </div>
                     <p id="currentBalanceMobile" class="text-2xl sm:text-3xl font-bold text-white mt-2">R$ 0,00</p>
                     <p class="text-xs text-white/60 mt-2" id="currentMonthLabelMobile"></p>
                 </div>
@@ -416,7 +419,10 @@
                 </h1>
                 <div class="flex items-center space-x-4">
                     <div class="text-right bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-                        <p class="text-sm text-white/80 font-medium">💰 Saldo do Mês Atual</p>
+                        <div class="flex items-center justify-end space-x-2 mb-2">
+                            <p class="text-sm text-white/80 font-medium">💰 Saldo de</p>
+                            <input type="month" id="balanceMonth" class="bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300" onchange="updateBalanceDisplay()">
+                        </div>
                         <p id="currentBalance" class="text-3xl font-bold text-white">R$ 0,00</p>
                         <p class="text-xs text-white/60 mt-1" id="currentMonthLabel"></p>
                     </div>
@@ -877,6 +883,10 @@
             // Set default dashboard filter to current month
             const currentMonth = new Date().toISOString().substring(0, 7);
             document.getElementById('dashboardFilterMonth').value = currentMonth;
+            
+            // Set default balance month to current month
+            document.getElementById('balanceMonth').value = currentMonth;
+            document.getElementById('balanceMonthMobile').value = currentMonth;
             
             initCharts();
             updateSortButtons();
@@ -1373,39 +1383,49 @@
 
         // Update dashboard
         function updateDashboard() {
-            // Get current month for balance calculation
-            const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
+            updateBalanceDisplay();
+            updateDashboardCards();
+        }
+
+        // Update balance display based on selected month
+        function updateBalanceDisplay() {
+            // Get selected month from both desktop and mobile inputs
+            const balanceMonth = document.getElementById('balanceMonth').value || new Date().toISOString().substring(0, 7);
+            const balanceMonthMobile = document.getElementById('balanceMonthMobile').value || new Date().toISOString().substring(0, 7);
             
-            // Update current month label
-            const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            // Sync both inputs
+            document.getElementById('balanceMonth').value = balanceMonth;
+            document.getElementById('balanceMonthMobile').value = balanceMonth;
+            
+            // Update month label - fix the date parsing
+            const [year, month] = balanceMonth.split('-');
+            const selectedDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const monthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             const currentMonthLabel = document.getElementById('currentMonthLabel');
             const currentMonthLabelMobile = document.getElementById('currentMonthLabelMobile');
             
-            if (currentMonthLabel) currentMonthLabel.textContent = currentMonthName;
-            if (currentMonthLabelMobile) currentMonthLabelMobile.textContent = currentMonthName;
+            if (currentMonthLabel) currentMonthLabel.textContent = monthName;
+            if (currentMonthLabelMobile) currentMonthLabelMobile.textContent = monthName;
             
-            // Filter transactions for current month only for balance
-            const currentMonthTransactions = transactions.filter(t => t.date.startsWith(currentMonth));
-            const currentMonthIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-            const currentMonthExpenses = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-            const currentMonthBalance = currentMonthIncome - currentMonthExpenses;
+            // Filter transactions for selected month
+            const selectedMonthTransactions = transactions.filter(t => t.date.startsWith(balanceMonth));
+            const selectedMonthIncome = selectedMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const selectedMonthExpenses = selectedMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const selectedMonthBalance = selectedMonthIncome - selectedMonthExpenses;
 
             // Update both desktop and mobile balance displays
             const balanceElement = document.getElementById('currentBalance');
             const balanceElementMobile = document.getElementById('currentBalanceMobile');
             
             if (balanceElement) {
-                balanceElement.textContent = formatCurrency(currentMonthBalance);
-                balanceElement.className = currentMonthBalance >= 0 ? 'text-3xl font-bold text-white' : 'text-3xl font-bold text-red-300';
+                balanceElement.textContent = formatCurrency(selectedMonthBalance);
+                balanceElement.className = selectedMonthBalance >= 0 ? 'text-3xl font-bold text-white' : 'text-3xl font-bold text-red-300';
             }
             
             if (balanceElementMobile) {
-                balanceElementMobile.textContent = formatCurrency(currentMonthBalance);
-                balanceElementMobile.className = currentMonthBalance >= 0 ? 'text-2xl font-bold text-white' : 'text-2xl font-bold text-red-300';
+                balanceElementMobile.textContent = formatCurrency(selectedMonthBalance);
+                balanceElementMobile.className = selectedMonthBalance >= 0 ? 'text-2xl font-bold text-white' : 'text-2xl font-bold text-red-300';
             }
-            
-            // Update dashboard cards with filtered data
-            updateDashboardCards();
         }
 
         // Update dashboard cards with filters
@@ -2263,5 +2283,5 @@
             return categories[category] || category;
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e1c89606fc5224',t:'MTc1NTAyMDY5Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e98c11b50b521f',t:'MTc1NTEwMjEwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
